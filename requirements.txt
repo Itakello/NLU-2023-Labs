@@ -3,4 +3,7 @@ spacy==3.5.0
 nltk
 scikit-learn
 pcfg
+stanza
+spacy_conll
+spacy_stanza
 # python -m spacy download en_core_web_sm
