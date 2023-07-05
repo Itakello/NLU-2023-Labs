@@ -6,4 +6,5 @@ pcfg
 stanza
 spacy_conll
 spacy_stanza
-# python -m spacy download en_core_web_sm
+python-crfsuite
+sklearn-crfsuite
