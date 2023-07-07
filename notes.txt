@@ -1,0 +1,59 @@
+# lab 6
+
+UAS=0 for both SPacy and Stanza
+followed the baseline code after the explanation of the exercise and used the trebank sentences instead
+dependency_treebank doesn't have labels while stanza and spacy have them
+
+# lab 9
+train progressively all models, one for each improvement
+- Replace RNN with LSTM (output the PPL)
+- Add two dropout layers: (output the PPL)
+    - one on embeddings, 
+    - one on the output
+- Replace SGD with AdamW (output the PPL)
+we can't use AdamW for all -> because the TA wants you to find the best parameters to have a decent PPL value (also with SGD)
+with colab with default (bad) parameters the sgd should take 40 min max, while on the azure server it should take 20 min, however it will converge in less than 10 min as i remember
+100 epochs to get around 184 PPL (eval) (1 part, considering the paper from the 2 part as a reference)
+you have to test:
+- LSTM + SGD
+- LSTM + dropouts + SGD
+- LSTM + dropouts + AdamW
+PPL should be less than 250 for both 3 versions
+Se l'hardware a vostra disposizione non Io consente oppure i tempi sono troppo lunghi potete decrementare il k o il numero di runs e menzionare il perché é stato fatto.
+Nessuno verrä penalizzato per questor perö é importante fare piü di due runs per rendere i risultati piü realistici.
+
+recap:
+- for each part, multiple tests given a combination of changes
+- for each test, at least >=2 runs to validate the results
+
+From the paper "REGULARIZING AND OPTIMIZING LSTM", they say: "For the specific task of neural language modeling, traditionally SGD without momentum has
+been found to outperform other algorithms such as momentum SGD (Sutskever et al., 2013), Adam
+(Kingma & Ba, 2014), Adagrad (Duchi et al., 2011) and RMSProp (Tieleman & Hinton, 2012) by a
+statistically significant margin." 
+But using AdamW leads to clearly better results, so why we should implement NT-AvSGD? Training the model with Weight Tying and Variational Dropout I can arrive to a perplexity of 100 with AdamW, but using SGD it get stuck around 600 (I am using lr of 0.1 for SGD and 0.001 for AdamW).. I don't expect that from 600 ppl with NT-AvSGD it can arrive at 100ppl😅 Did anyone had the same problem?
+!!
+I can achieve ~180 PPL with AdamW (100 epochs) with lr 1e-4 and around the same with all SGD variants, lr 1. For part 2 it takes longer for me (more than 100 epochs)
+
+For dropout I have the same, I am using a 0.1 probably, it may be too low and so using it is not so impacting
+I’m using the same probabilities as in the paper: 0.4 embeddings, 0.2 outputs
+
+# lab 10
+
+part 2: I do not undertand if we have to train the bert model from scratch or finetune it
+fine tuning the huggingface model I think. The objectivity classification model from part 1 is used for data filtering
+But with fine tuning we have the problem that the bert tokenizer can split in more tokens one word, and this will cause problems with the label associated at word label
+The difficulty consists in coming up with a masking technique to overcome this. In the paper they mention a simple technique, it took me a function and some hack to embed the masks but it works
+The Bert tokenizer has a function "convert_tokens_to_ids", doesn't that solve the issue? We could convert to IDs the whitespace tokenized text
+point is that words not in the vocabulary are broken into subtokens. Subtokens become logits. Logits then don’t match word level labels. You need to go back to the word sequence with the right subtokens.
+but it doesn't tokenize further the text. For unseen words it just has an ID referred as UNK (function "convert_tokens_to_ids")
+
+also you can make up a word and feed it to tokenizer.tokenize()
+Yes, I know, I am just saying you could use tokenizer.convert_tokens_to_ids instead of tokenizer.tokenize().
+I did that and worked for me, but I could be wrong of course
+
+# lab 11
+
+# general
+
+train and evaluate multiple times only in labs 10 and 11, not 9
+unning multiple times the training can lead to more a more consistent analysis in the report
