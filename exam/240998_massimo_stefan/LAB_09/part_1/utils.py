@@ -4,6 +4,7 @@ import torch
 import torch.utils.data as data
 from functools import partial
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard.writer import SummaryWriter
 
 def read_file(path, eos_token="<eos>"):
     output = []
@@ -118,12 +119,21 @@ def get_dataloaders():
     train_raw = read_file("dataset/ptb.train.txt")
     dev_raw = read_file("dataset/ptb.valid.txt")
     test_raw = read_file("dataset/ptb.test.txt")
-    vocab = get_vocab(train_raw, ["<pad>", "<eos>"])
     lang = Lang(train_raw, ["<pad>", "<eos>"])
     train_dataset = PennTreeBank(train_raw, lang)
     dev_dataset = PennTreeBank(dev_raw, lang)
     test_dataset = PennTreeBank(test_raw, lang)
     train_loader = DataLoader(train_dataset, batch_size=256, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]),  shuffle=True)
-    dev_loader = DataLoader(dev_dataset, batch_size=1024, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]))
-    test_loader = DataLoader(test_dataset, batch_size=1024, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]))
+    dev_loader = DataLoader(dev_dataset, batch_size=256, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]))
+    test_loader = DataLoader(test_dataset, batch_size=256, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]))
     return train_loader, dev_loader, test_loader
+
+def get_vocab_len():
+    train_raw = read_file("dataset/ptb.train.txt")
+    vocab = get_vocab(train_raw, ["<pad>", "<eos>"])
+    return len(vocab)
+
+def get_pad_index() -> int:
+    train_raw = read_file("dataset/ptb.train.txt")
+    lang = Lang(train_raw, ["<pad>", "<eos>"])
+    return lang.word2id["<pad>"]
