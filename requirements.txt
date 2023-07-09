@@ -8,3 +8,8 @@ spacy_conll
 spacy_stanza
 python-crfsuite
 sklearn-crfsuite
+gensim
+python-Levenshtein
+tqdm
+torch
+matplotlib

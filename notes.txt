@@ -5,39 +5,35 @@ followed the baseline code after the explanation of the exercise and used the tr
 dependency_treebank doesn't have labels while stanza and spacy have them
 
 # lab 9
-train progressively all models, one for each improvement
-- Replace RNN with LSTM (output the PPL)
-- Add two dropout layers: (output the PPL)
-    - one on embeddings, 
-    - one on the output
-- Replace SGD with AdamW (output the PPL)
-we can't use AdamW for all -> because the TA wants you to find the best parameters to have a decent PPL value (also with SGD)
-with colab with default (bad) parameters the sgd should take 40 min max, while on the azure server it should take 20 min, however it will converge in less than 10 min as i remember
-100 epochs to get around 184 PPL (eval) (1 part, considering the paper from the 2 part as a reference)
+🔥 Major: initialize the model with the pre-trained weifghts (download from hugging-face and fine-tune)
+(part 1) train progressively all models, one for each improvement
+🎯 Goal: find good parameters (20 min on azure, 10 min to converge, 100 epochs to get around 184 PPL (eval))
 you have to test:
 - LSTM + SGD
 - LSTM + dropouts + SGD
 - LSTM + dropouts + AdamW
-PPL should be less than 250 for both 3 versions
-Se l'hardware a vostra disposizione non Io consente oppure i tempi sono troppo lunghi potete decrementare il k o il numero di runs e menzionare il perché é stato fatto.
-Nessuno verrä penalizzato per questor perö é importante fare piü di due runs per rendere i risultati piü realistici.
-
-recap:
+⚠️ Warning: PPL should be less than 250 for both 3 versions
+🔥 Major:
 - for each part, multiple tests given a combination of changes
-- for each test, at least >=2 runs to validate the results
+- for each test, do at least 2 runs to have realistic results (and validate them)
 
-From the paper "REGULARIZING AND OPTIMIZING LSTM", they say: "For the specific task of neural language modeling, traditionally SGD without momentum has
-been found to outperform other algorithms such as momentum SGD (Sutskever et al., 2013), Adam
-(Kingma & Ba, 2014), Adagrad (Duchi et al., 2011) and RMSProp (Tieleman & Hinton, 2012) by a
-statistically significant margin." 
-But using AdamW leads to clearly better results, so why we should implement NT-AvSGD? Training the model with Weight Tying and Variational Dropout I can arrive to a perplexity of 100 with AdamW, but using SGD it get stuck around 600 (I am using lr of 0.1 for SGD and 0.001 for AdamW).. I don't expect that from 600 ppl with NT-AvSGD it can arrive at 100ppl😅 Did anyone had the same problem?
-!!
-I can achieve ~180 PPL with AdamW (100 epochs) with lr 1e-4 and around the same with all SGD variants, lr 1. For part 2 it takes longer for me (more than 100 epochs)
+🗒️ Note: from paper "For the specific task of neural language modeling, traditionally SGD without momentum has been found to outperform other algorithms such as momentum SGD, Adam, Adagrad and RMSProp by a statistically significant margin."
+
+❓ Problem: using AdamW leads to better results -> why we should implement NT-AvSGD? (Weight Tying and Variational Dropout result in PPL of 100 with AdamW, but using SGD it get stuck around 600
+🗒️ Note: I am using lr of 0.1 for SGD and 0.001 for AdamW), I don't expect that from 600 ppl with NT-AvSGD it can arrive at 100ppl😅 Did anyone had the same problem?
+💡 Idea:
+* part 1: I can achieve ~180 PPL with AdamW (100 epochs) with lr 1e-4 and around the same with all SGD variants, lr 1
+* part 2: it takes longer for me (more than 100 epochs)
 
 For dropout I have the same, I am using a 0.1 probably, it may be too low and so using it is not so impacting
 I’m using the same probabilities as in the paper: 0.4 embeddings, 0.2 outputs
+(part 2) modify the baseline and add some regularisations
 
 # lab 10
+
+play a bit with the parameters (the learning rate, hidden size of the layers and batch size) to maximise the performance
+
+for each test, do at least 2 runs to have realistic results (and validate them)
 
 part 2: I do not undertand if we have to train the bert model from scratch or finetune it
 fine tuning the huggingface model I think. The objectivity classification model from part 1 is used for data filtering
@@ -53,7 +49,10 @@ I did that and worked for me, but I could be wrong of course
 
 # lab 11
 
+play a bit with the parameters (the learning rate, hidden size of the layers and batch size) to maximise the performance
+
+for each test, do at least 2 runs to have realistic results (and validate them)
+
 # general
 
 train and evaluate multiple times only in labs 10 and 11, not 9
-unning multiple times the training can lead to more a more consistent analysis in the report
