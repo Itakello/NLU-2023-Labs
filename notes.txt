@@ -5,13 +5,6 @@ followed the baseline code after the explanation of the exercise and used the tr
 dependency_treebank doesn't have labels while stanza and spacy have them
 
 # lab 9
-🔥 Major: initialize the model with the pre-trained weifghts (download from hugging-face and fine-tune)
-(part 1) train progressively all models, one for each improvement
-🎯 Goal: find good parameters (20 min on azure, 10 min to converge, 100 epochs to get around 184 PPL (eval))
-you have to test:
-- LSTM + SGD
-- LSTM + dropouts + SGD
-- LSTM + dropouts + AdamW
 ⚠️ Warning: PPL should be less than 250 for both 3 versions
 🔥 Major:
 - for each part, multiple tests given a combination of changes
@@ -27,7 +20,6 @@ you have to test:
 
 For dropout I have the same, I am using a 0.1 probably, it may be too low and so using it is not so impacting
 I’m using the same probabilities as in the paper: 0.4 embeddings, 0.2 outputs
-(part 2) modify the baseline and add some regularisations
 
 # lab 10
 
@@ -49,6 +41,8 @@ Yes, I know, I am just saying you could use tokenizer.convert_tokens_to_ids inst
 I did that and worked for me, but I could be wrong of course
 
 # lab 11
+
+🔥 Major: initialize the model with the pre-trained weights (download from hugging-face and fine-tune)
 
 play a bit with the parameters (the learning rate, hidden size of the layers and batch size) to maximise the performance
 
