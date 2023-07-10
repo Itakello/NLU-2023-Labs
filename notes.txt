@@ -35,10 +35,11 @@ play a bit with the parameters (the learning rate, hidden size of the layers and
 
 for each test, do at least 2 runs to have realistic results (and validate them)
 
-part 2: I do not undertand if we have to train the bert model from scratch or finetune it
-fine tuning the huggingface model I think. The objectivity classification model from part 1 is used for data filtering
-But with fine tuning we have the problem that the bert tokenizer can split in more tokens one word, and this will cause problems with the label associated at word label
-The difficulty consists in coming up with a masking technique to overcome this. In the paper they mention a simple technique, it took me a function and some hack to embed the masks but it works
+The objectivity classification model from part 1 is used for data filtering
+
+❓ Problem: the bert tokenizer can split in more tokens one word, and this will cause problems with the label associated at word label
+💡 Idea: the difficulty consists in coming up with a masking technique to overcome this.
+In the paper they mention a simple technique, it took me a function and some hack to embed the masks but it works
 The Bert tokenizer has a function "convert_tokens_to_ids", doesn't that solve the issue? We could convert to IDs the whitespace tokenized text
 point is that words not in the vocabulary are broken into subtokens. Subtokens become logits. Logits then don’t match word level labels. You need to go back to the word sequence with the right subtokens.
 but it doesn't tokenize further the text. For unseen words it just has an ID referred as UNK (function "convert_tokens_to_ids")
@@ -53,6 +54,3 @@ play a bit with the parameters (the learning rate, hidden size of the layers and
 
 for each test, do at least 2 runs to have realistic results (and validate them)
 
-# general
-
-train and evaluate multiple times only in labs 10 and 11, not 9
