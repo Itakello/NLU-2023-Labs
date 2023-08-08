@@ -4,7 +4,9 @@ from model import *
 
 if __name__ == "__main__":
     models = {
-        LM_LSTM_Adv:{"emb_size": 300, "hidden_size": 400, "optimizer": "AdamW", "lr": 0.0001}
+        LM_LSTM_Adv:{"emb_size": 300, "hidden_size": 300, "optimizer": "AdamW", "lr": 0.0001},
+        LM_LSTM_Adv:{"emb_size": 400, "hidden_size": 400, "optimizer": "AdamW", "lr": 0.0001},
+        LM_LSTM_Adv:{"emb_size": 500, "hidden_size": 500, "optimizer": "AdamW", "lr": 0.0001},
     }
     vocab_len = get_vocab_len()
     pad_index = get_pad_index()

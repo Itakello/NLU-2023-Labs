@@ -12,7 +12,7 @@ class VariationalDropout(nn.Module):
         if not self.training:
             return x
 
-        if self.mask is None:
+        if self.mask is None or self.mask.size(1) != x.size(1) or self.mask.size(2) != x.size(2):
             self.mask = x.new_empty(1, x.size(1), x.size(2), requires_grad=False).bernoulli_(1 - self.p)
 
         return x * self.mask.div_(1 - self.p)
@@ -22,6 +22,7 @@ class LM_LSTM_Adv(nn.Module):
     def __init__(self, emb_size, hidden_size, output_size, pad_index=0, out_dropout=0.1,
                  emb_dropout=0.1, n_layers=1):
         super(LM_LSTM_Adv, self).__init__()
+        assert emb_size == hidden_size, "emb_size must be equal to hidden_size for weight tying"
         self.embedding = nn.Embedding(output_size, emb_size, padding_idx=pad_index)
         self.emb_dropout = VariationalDropout(emb_dropout) #! Variational droupout
         self.lstm = nn.LSTM(emb_size, hidden_size, n_layers, bidirectional=False)    
