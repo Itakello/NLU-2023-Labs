@@ -49,7 +49,6 @@ def compute_low_lexicons(m_words, words_spacy, words_nltk) -> None:
     lexicon_reference = set([w.lower() for w in m_words])
     lexicon_spacy = set([w.lower() for w in words_spacy])
     lexicon_nltk = set([w.lower() for w in words_nltk])
-    print("--Lexicon sizes for each version--")
     print("Lexicon size reference: ",len(lexicon_reference))
     print("Lexicon size spacy: ",len(lexicon_spacy))
     print("Lexicon size nltk: ",len(lexicon_nltk))
@@ -67,8 +66,7 @@ def compute_freq_distributions(m_words, words_spacy, words_nltk, n=10) -> None:
     m_lowercase_freq_list = Counter([w.lower() for w in m_words])
     m_lowercase_freq_list_spacy = Counter([w.lower() for w in words_spacy])
     m_lowercase_freq_list_nltk = Counter([w.lower() for w in words_nltk])
-
-    print("--Frequency diustribution for each version--")
+    
     print(f"Frequency distribution reference of top {n} frequencies: ", _nbest(m_lowercase_freq_list, n))
     print(f"Frequency distribution spacy of top {n} frequencies: ", _nbest(m_lowercase_freq_list_spacy, n))
     print(f"Frequency distribution nltk of top {n} frequencies: ", _nbest(m_lowercase_freq_list_nltk, n))

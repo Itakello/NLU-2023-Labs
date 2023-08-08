@@ -6,16 +6,12 @@ import numpy as np
 from torch.optim.swa_utils import AveragedModel, SWALR
 import copy
 import os
-from torch.utils.tensorboard.writer import SummaryWriter
-
-def log_ppl(writer:SummaryWriter, step:int, ppl: float) -> None:
-    writer.add_scalar('PPL', ppl, step)
 
 def get_optimizer(optimizer, parameters, lr):
     if optimizer == "SGD":
         return torch.optim.SGD(parameters, lr=lr)
-    elif optimizer == "Adam":
-        return torch.optim.Adam(parameters, lr=lr)
+    elif optimizer == "AdamW":
+        return torch.optim.AdamW(parameters, lr=lr)
     else:
         raise ValueError("Optimizer not supported")
 
@@ -103,61 +99,6 @@ def train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_
             if patience <= 0: # Early stopping with patience
                 break # Not nice but it keeps the code clean
                 
-    best_model.to(device)
-    final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)    
-    print('Test ppl: ', final_ppl)
-    return best_model, final_ppl
-
-def train_and_evaluate_avg(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader, clip=5, device='cuda:0'):
-    n_epochs = 100
-    patience = 3
-    losses_train = []
-    losses_dev = []
-    sampled_epochs = []
-    best_ppl = math.inf
-    best_model = None
-    pbar = tqdm(range(1,n_epochs))
-    writer = SummaryWriter(log_dir=f"runs/{model.__class__.__name__}")
-    
-    # Initialize the averaged model
-    swa_model = AveragedModel(model)
-    swa_scheduler = SWALR(optimizer, swa_lr=0.05)
-    
-    non_monotonic_trigger = 5  # New hyperparameter
-    val_losses = []
-    
-    #If the PPL is too high try to change the learning rate
-    for epoch in pbar:
-        loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
-        
-        if epoch % 1 == 0:
-            sampled_epochs.append(epoch)
-            losses_train.append(np.asarray(loss).mean())
-            ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
-            losses_dev.append(np.asarray(loss_dev).mean())
-            pbar.set_description("PPL: %f" % ppl_dev)
-            writer.log_ppl(writer, epoch, ppl_dev)
-            
-            # If the validation loss hasn't improved for `non_monotonic_trigger` epochs, start SWA
-            if len(val_losses) > non_monotonic_trigger and loss_dev > max(val_losses[-non_monotonic_trigger:]):
-                swa_model.update_parameters(model)
-                swa_scheduler.step()
-            else:
-                optimizer.step()
-
-            val_losses.append(loss_dev)
-            
-            if  ppl_dev < best_ppl: # the lower, the better
-                best_ppl = ppl_dev
-                best_model = copy.deepcopy(model).to('cpu')
-                patience = 3
-            else:
-                patience -= 1
-                
-            if patience <= 0: # Early stopping with patience
-                break # Not nice but it keeps the code clean
-    
-    best_model = swa_model if swa_model is not None else best_model
     best_model.to(device)
     final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)    
     print('Test ppl: ', final_ppl)

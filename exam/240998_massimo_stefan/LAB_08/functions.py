@@ -69,8 +69,7 @@ def evaluate_vectors(vectors, stratified_split, labels):
     classifier = MultinomialNB()
     labels = get_labels()
     scores = cross_validate(classifier, vectors, labels, cv=stratified_split, scoring=['f1_micro'])
-    #print(sum(scores['test_f1_micro'])/len(scores['test_f1_micro']))
-    print(np.mean(scores['test_f1_micro']))
+    print(f"F1 micro: {np.mean(scores['test_f1_micro'])}")
     
 #--------------------------------Part 2--------------------------------
 
@@ -322,5 +321,4 @@ def evaluate_lesk(instances, lesk_func, stratified_split, mapping):
         real_senses = [mapping[inst.senses[0]] for inst in test_instances]
 
         f1_scores.append(f1_score(real_senses, predicted_senses, average='micro'))
-
-    print(np.mean(f1_scores))
+    print(f"F1 micro: {np.mean(f1_scores)}")

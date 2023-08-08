@@ -1,6 +1,3 @@
-# Add the class of your model only
-# Here is where you define the architecture of your model using pytorch
-
 from nltk.corpus import stopwords
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer

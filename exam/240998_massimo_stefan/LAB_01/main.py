@@ -15,5 +15,7 @@ if __name__ == "__main__":
     chars_nltk, words_nltk, sentes_nltk = get_stats_nltk(m_chars)
     print("--Statistics using NLTK--")
     print_statistics(chars_nltk, words_nltk, sentes_nltk)
+    print("--Lexicon sizes for each version--")
     compute_low_lexicons(m_words, words_spacy, words_nltk)
+    print("--Frequency diustribution for each version--")
     compute_freq_distributions(m_words, words_spacy, words_nltk)

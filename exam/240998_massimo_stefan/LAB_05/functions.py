@@ -1,5 +1,3 @@
-# Add the class of your model only
-# Here is where you define the architecture of your model using pytorch
 import nltk
 from nltk import PCFG, Nonterminal
 from nltk.parse.generate import generate

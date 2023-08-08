@@ -6,6 +6,7 @@ from sklearn.metrics import classification_report
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import numpy as np
+import torch.optim as optim
 
 def init_weights(mat):
     for m in mat.modules():
