@@ -16,4 +16,4 @@ if __name__ == "__main__":
         model.apply(init_weights)
         optimizer = get_optimizer(hyp['optimizer'], model.parameters(), hyp['lr'])
         best_model, final_ppl = train_and_evaluate_avg(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader, device='cuda:0')
-        save_model(best_model, model.__class__.__name__, hyp['emb_size'], hyp['hidden_size'], hyp['optimizer'], hyp['lr'], hyp['avg'], final_ppl)
+        save_model(best_model, model.__class__.__name__, hyp['emb_size'], hyp['hidden_size'], hyp['optimizer'], hyp['lr'], final_ppl)

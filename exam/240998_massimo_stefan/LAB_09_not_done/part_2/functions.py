@@ -10,8 +10,8 @@ import os
 def get_optimizer(optimizer, parameters, lr):
     if optimizer == "SGD":
         return torch.optim.SGD(parameters, lr=lr)
-    elif optimizer == "Adam":
-        return torch.optim.Adam(parameters, lr=lr)
+    elif optimizer == "AdamW":
+        return torch.optim.AdamW(parameters, lr=lr)
     else:
         raise ValueError("Optimizer not supported")
 

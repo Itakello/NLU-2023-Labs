@@ -13,9 +13,10 @@ class VariationalDropout(nn.Module):
             return x
 
         if self.mask is None:
-            self.mask = x.new_empty(1, x.size(1), requires_grad=False).bernoulli_(1 - self.p)
+            self.mask = x.new_empty(1, x.size(1), x.size(2), requires_grad=False).bernoulli_(1 - self.p)
 
         return x * self.mask.div_(1 - self.p)
+
 
 class LM_LSTM_Adv(nn.Module):
     def __init__(self, emb_size, hidden_size, output_size, pad_index=0, out_dropout=0.1,

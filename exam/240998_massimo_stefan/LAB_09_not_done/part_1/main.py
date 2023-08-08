@@ -4,13 +4,13 @@ from model import *
 
 if __name__ == "__main__":
     models = {LM_LSTM: 
-                {"emb_size": 300, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
+                {"emb_size": 250, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
             LM_LSTM: 
-                {"emb_size": 300, "hidden_size": 400, "optimizer": "SGD", "lr": 0.01},
+                {"emb_size": 250, "hidden_size": 400, "optimizer": "SGD", "lr": 0.01},
             LM_LSTM: 
-                {"emb_size": 300, "hidden_size": 500, "optimizer": "SGD", "lr": 0.1},
+                {"emb_size": 250, "hidden_size": 500, "optimizer": "SGD", "lr": 0.1},
             LM_LSTM: 
-                {"emb_size": 300, "hidden_size": 600, "optimizer": "SGD", "lr": 0.1},
+                {"emb_size": 200, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
             LM_LSTM_Dropout: 
                 {"emb_size": 300, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
             LM_LSTM_Dropout: 
@@ -25,7 +25,5 @@ if __name__ == "__main__":
         model = model(hyp['emb_size'], hyp['hidden_size'], vocab_len, pad_index=pad_index).to('cuda:0')
         model.apply(init_weights)
         optimizer = get_optimizer(hyp['optimizer'], model.parameters(), hyp['lr'])
-        #if hyp['avg']:
-        #    best_model, final_ppl = train_and_evaluate_avg(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader, device='cuda:0')
         best_model, final_ppl = train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader, device='cuda:0')
-        save_model(best_model, model.__class__.__name__, hyp['emb_size'], hyp['hidden_size'], hyp['optimizer'], hyp['lr'], hyp['avg'], final_ppl)
+        save_model(best_model, model.__class__.__name__, hyp['emb_size'], hyp['hidden_size'], hyp['optimizer'], hyp['lr'], final_ppl)

@@ -4,7 +4,6 @@ import torch
 import torch.utils.data as data
 from functools import partial
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard.writer import SummaryWriter
 
 def read_file(path, eos_token="<eos>"):
     output = []
