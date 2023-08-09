@@ -6,12 +6,13 @@ from nltk.parse import DependencyEvaluator
 from nltk.parse.dependencygraph import DependencyGraph
 from spacy.language import Language
 from spacy.tokenizer import Tokenizer
+from collections import defaultdict
 
 
-def get_parsers() -> list[Language]:
+def get_parsers() -> tuple(Language, Language):
     spacy_parser = _get_spacy_parser()
     stanza_parser = _get_stanza_parser()
-    return [ stanza_parser]
+    return spacy_parser, stanza_parser
 
 def _get_spacy_parser() -> Language:
     # Load the spacy model
@@ -36,8 +37,12 @@ def _get_stanza_parser() -> Language:
     nlp.add_pipe("conll_formatter", config=config, last=True)
     return nlp
 
-def get_sentences() -> list[DependencyGraph]:
-    return dependency_treebank.parsed_sents()[-100:-99]
+def get_parsed_sentences() -> list[DependencyGraph]:
+    return dependency_treebank.parsed_sents()[-100:]
+
+def get_raw_sentences() -> list[str]:
+    sentences = dependency_treebank.sents()[-100:]
+    return [" ".join(sentence) for sentence in sentences]
 
 def compare_dependency_tags(sentence: str, spacy_parser: Language, stanza_parser: Language) -> None:
     # Parse the sentence with spaCy
@@ -73,19 +78,16 @@ def parse_sentences(parser:Language, sentences:list[str]) -> list[DependencyGrap
 
         # Select the columns accoroding to Malt-Tab format
         tmp = df[["FORM", 'XPOS', 'HEAD', 'DEPREL']].to_string(header=False, index=False)
-        print(tmp)
-        #! For some reason the DependencyGraph changes the word order, so now it doesn't follow the 'address' order
-        dp = DependencyGraph(tmp, top_relation_label='ROOT')
+        dp = DependencyGraph(tmp)
         parsed_sentences.append(dp)
     return parsed_sentences
 
-def evaluate_parser(parser:Language, parsed_sentences:list[DependencyGraph]) -> None:
-    gold_sentences = get_sentences()
-    parsed_sentences[0].tree().pretty_print(unicodelines=True, nodedist=4)
-    gold_sentences[0].tree().pretty_print(unicodelines=True, nodedist=4)
+def evaluate_parser(parsed_sentences:list[DependencyGraph]) -> None:
+    gold_sentences = get_parsed_sentences()
+    #parsed_sentences[0].tree().pretty_print(unicodelines=True, nodedist=4)
+    #gold_sentences[0].tree().pretty_print(unicodelines=True, nodedist=4)
 
     de = DependencyEvaluator(parsed_sentences, gold_sentences)
     las, uas = de.eval()
-    print(f"Parser: {parser}")
     print(f"LAS: {las}")
     print(f"UAS: {uas}")
