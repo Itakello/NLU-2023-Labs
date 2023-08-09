@@ -4,17 +4,17 @@ from model import *
 
 if __name__ == "__main__":
     models = {LM_LSTM: 
-                {"emb_size": 250, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
+                {"emb_size": 300, "hidden_size": 600, "optimizer": "SGD", "lr": 0.1},
             LM_LSTM: 
                 {"emb_size": 250, "hidden_size": 400, "optimizer": "SGD", "lr": 0.01},
-            LM_LSTM: 
-                {"emb_size": 250, "hidden_size": 500, "optimizer": "SGD", "lr": 0.1},
-            LM_LSTM: 
-                {"emb_size": 200, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
+            #LM_LSTM: 
+                #{"emb_size": 250, "hidden_size": 500, "optimizer": "SGD", "lr": 0.1},
+            #LM_LSTM: 
+            #    {"emb_size": 200, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
             LM_LSTM_Dropout: 
-                {"emb_size": 300, "hidden_size": 400, "optimizer": "SGD", "lr": 0.1},
-            LM_LSTM_Dropout: 
-                {"emb_size": 300, "hidden_size": 400, "optimizer": "AdamW", "lr": 0.0001}
+                {"emb_size": 250, "hidden_size": 400, "optimizer": "SGD", "lr": 0.01},
+            #LM_LSTM_Dropout: 
+            #    {"emb_size": 300, "hidden_size": 400, "optimizer": "AdamW", "lr": 0.0001}
     }
     vocab_len = get_vocab_len()
     pad_index = get_pad_index()
