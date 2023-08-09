@@ -36,7 +36,7 @@ class SubjectivityDataset(data.Dataset):
             'sentence_text': sentence,
             'input_ids': encoding['input_ids'].flatten(),
             'attention_mask': encoding['attention_mask'].flatten(),
-            'label': torch.tensor(label, dtype=torch.long)
+            'labels': torch.tensor(label, dtype=torch.long)
         }
 
 def split_dataset(sentences, labels, test_size=0.2, validation_size=0.1):

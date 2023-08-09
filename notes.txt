@@ -1,9 +1,3 @@
-# lab 6
-
-UAS=0 for both SPacy and Stanza
-followed the baseline code after the explanation of the exercise and used the trebank sentences instead
-dependency_treebank doesn't have labels while stanza and spacy have them
-
 # lab 9
 ⚠️ Warning: PPL should be less than 250 for both 3 versions
 🔥 Major:
@@ -23,12 +17,6 @@ I’m using the same probabilities as in the paper: 0.4 embeddings, 0.2 outputs
 
 # lab 10
 
-play a bit with the parameters (the learning rate, hidden size of the layers and batch size) to maximise the performance
-
-for each test, do at least 2 runs to have realistic results (and validate them)
-
-The objectivity classification model from part 1 is used for data filtering
-
 ❓ Problem: the bert tokenizer can split in more tokens one word, and this will cause problems with the label associated at word label
 💡 Idea: the difficulty consists in coming up with a masking technique to overcome this.
 In the paper they mention a simple technique, it took me a function and some hack to embed the masks but it works
@@ -39,12 +27,3 @@ but it doesn't tokenize further the text. For unseen words it just has an ID ref
 also you can make up a word and feed it to tokenizer.tokenize()
 Yes, I know, I am just saying you could use tokenizer.convert_tokens_to_ids instead of tokenizer.tokenize().
 I did that and worked for me, but I could be wrong of course
-
-# lab 11
-
-🔥 Major: initialize the model with the pre-trained weights (download from hugging-face and fine-tune)
-
-play a bit with the parameters (the learning rate, hidden size of the layers and batch size) to maximise the performance
-
-for each test, do at least 2 runs to have realistic results (and validate them)
-

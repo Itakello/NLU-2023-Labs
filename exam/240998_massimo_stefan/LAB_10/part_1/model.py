@@ -9,10 +9,10 @@ class ModelIAS(nn.Module):
         
         self.embedding = nn.Embedding(vocab_len, emb_size, padding_idx=pad_index)
         
-        # ! Make LSTM bidirectional
+        # ! Add bidirectionality
         self.utt_encoder = nn.LSTM(emb_size, hid_size, n_layer, bidirectional=True)    
-        self.slot_out = nn.Linear(hid_size * 2, out_slot)  # ! Adjust input size
-        self.intent_out = nn.Linear(hid_size * 2, out_int)  # ! Adjust input size
+        self.slot_out = nn.Linear(hid_size * 2, out_slot)  # ! Adjust input size for bidirectionality
+        self.intent_out = nn.Linear(hid_size * 2, out_int)  # ! Adjust input size for bidirectionality
         
         # Add dropout layer
         self.dropout = nn.Dropout(dropout_rate)

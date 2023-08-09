@@ -64,7 +64,7 @@ def train_and_eval(model, optimizer, criterion, train_loader, test_loader, dev_l
             losses_dev.append(loss_dev)
 
     _, accuracy = eval_loop(test_loader, criterion, model)
-    print('Intent Accuracy:', intent_test['accuracy'])
+    print('Intent Accuracy:', accuracy)
     return sampled_epochs, losses_train, losses_dev
     
 def plot_losses(sampled_epochs, losses_train, losses_dev):
