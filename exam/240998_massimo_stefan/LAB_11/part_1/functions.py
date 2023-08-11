@@ -13,22 +13,24 @@ def train_loop(data, optimizer, criterion, model):
     for batch in data:
         optimizer.zero_grad() # Zeroing the gradient
         input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        labels = batch['labels'].to(device)
-        pred_labels = model(input_ids, attention_mask=attention_mask, labels=labels)
-        loss = criterion(pred_labels, labels)
+        attention_masks = batch['attention_mask'].to(device)
+        labels = batch['label'].to(device)
+        logits = model(input_ids, attention_mask=attention_masks, labels=labels).logits
+        loss = criterion(logits, labels)
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
     avg_training_loss = total_loss / len(data)
     return avg_training_loss
 
+# TODO check
 def flat_accuracy(preds, labels):
     pred_flat = np.argmax(preds, axis=1).flatten()
     labels_flat = labels.flatten()
     return np.sum(pred_flat == labels_flat) / len(labels_flat)
 
-def eval_loop(data, criterion, model, lang):
+# TODO check
+def eval_loop(data, criterion, model):
     model.eval()
     total_loss = 0
     total_eval_accuracy = 0
@@ -49,7 +51,7 @@ def eval_loop(data, criterion, model, lang):
     return avg_val_loss, avg_val_accuracy
 
 def train_and_eval(model, optimizer, criterion, train_loader, test_loader, dev_loader):
-    n_epochs = 200
+    n_epochs = 100
     patience = 3
     losses_train = []
     losses_dev = []
@@ -58,6 +60,7 @@ def train_and_eval(model, optimizer, criterion, train_loader, test_loader, dev_l
     for x in tqdm(range(1,n_epochs)):
         loss = train_loop(train_loader, optimizer, criterion, model)
         if x % 5 == 0:
+            # TODO fix patience and results
             sampled_epochs.append(x)
             losses_train.append(loss)
             loss_dev, _ = eval_loop(dev_loader, criterion, model)

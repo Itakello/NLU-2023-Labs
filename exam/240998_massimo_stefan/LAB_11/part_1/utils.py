@@ -1,4 +1,3 @@
-import nltk
 from nltk.corpus import movie_reviews as mr
 from nltk.corpus import subjectivity as sub
 from sklearn.model_selection import train_test_split
@@ -9,11 +8,10 @@ from sklearn.preprocessing import LabelEncoder
 from transformers import BertTokenizer
 
 class SubjectivityDataset(data.Dataset):
-    def __init__(self, sentences, labels, tokenizer, max_len=130):
+    def __init__(self, sentences, labels, tokenizer):
         self.sentences = sentences
         self.labels = labels
         self.tokenizer = tokenizer
-        self.max_len = max_len
         
     def __len__(self):
         return len(self.sentences)
@@ -25,18 +23,17 @@ class SubjectivityDataset(data.Dataset):
         encoding = self.tokenizer.encode_plus(
             sentence,
             add_special_tokens=True,
-            max_length=self.max_len,
             return_token_type_ids=False,
-            pad_to_max_length=True,
+            padding='max_length',
             return_attention_mask=True,
-            return_tensors='pt',
+            return_tensors='pt'
         )
 
         return {
             'sentence_text': sentence,
             'input_ids': encoding['input_ids'].flatten(),
             'attention_mask': encoding['attention_mask'].flatten(),
-            'labels': torch.tensor(label, dtype=torch.long)
+            'label': torch.tensor(label, dtype=torch.long)
         }
 
 def split_dataset(sentences, labels, test_size=0.2, validation_size=0.1):
@@ -67,11 +64,35 @@ def get_sub_data():
 def get_sub_dataloaders(sentences, labels):
     X_train, X_eval, X_test, y_train, y_eval, y_test = split_dataset(sentences, labels)
     tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    train_dataset = SubjectivityDataset(X_train, y_train, tokenizer, 100)
-    eval_dataset = SubjectivityDataset(X_eval, y_eval, tokenizer, 100)
-    test_dataset = SubjectivityDataset(X_test, y_test, tokenizer, 100)
-    train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True)
+    train_dataset = SubjectivityDataset(X_train, y_train, tokenizer)
+    eval_dataset = SubjectivityDataset(X_eval, y_eval, tokenizer)
+    test_dataset = SubjectivityDataset(X_test, y_test, tokenizer)
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     eval_loader = DataLoader(eval_dataset, batch_size=64)
     test_loader = DataLoader(test_dataset, batch_size=64)
     return train_loader, eval_loader, test_loader
-    
+
+# TODO check
+def get_mr_data():
+    categories = mr.categories()
+    sentences = []
+    labels = []
+    for cat in categories:
+        tmp_sent = mr.sents(categories=cat)
+        sentences.extend(tmp_sent)
+        labels.extend([cat] * len(tmp_sent))
+    encoder = LabelEncoder()
+    labels = encoder.fit_transform(labels)
+    return sentences, labels, encoder
+
+# TODO check
+def get_mr_dataloaders(sentences, labels):
+    X_train, X_eval, X_test, y_train, y_eval, y_test = split_dataset(sentences, labels)
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    train_dataset = SubjectivityDataset(X_train, y_train, tokenizer)  # Reusing the same dataset class
+    eval_dataset = SubjectivityDataset(X_eval, y_eval, tokenizer)
+    test_dataset = SubjectivityDataset(X_test, y_test, tokenizer)
+    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=64)
+    test_loader = DataLoader(test_dataset, batch_size=64)
+    return train_loader, eval_loader, test_loader
