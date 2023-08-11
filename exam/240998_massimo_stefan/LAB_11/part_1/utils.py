@@ -1,17 +1,19 @@
 from nltk.corpus import movie_reviews as mr
 from nltk.corpus import subjectivity as sub
-from sklearn.model_selection import train_test_split
 import torch.utils.data as data
 from torch.utils.data import DataLoader
 import torch
 from sklearn.preprocessing import LabelEncoder
 from transformers import BertTokenizer
+import re
+from nltk.tokenize import sent_tokenize
 
-class SubjectivityDataset(data.Dataset):
-    def __init__(self, sentences, labels, tokenizer):
+class SentimentDataset(data.Dataset):
+    def __init__(self, sentences, labels, tokenizer, max_len=256):
         self.sentences = sentences
         self.labels = labels
         self.tokenizer = tokenizer
+        self.max_len = max_len
         
     def __len__(self):
         return len(self.sentences)
@@ -22,6 +24,7 @@ class SubjectivityDataset(data.Dataset):
 
         encoding = self.tokenizer.encode_plus(
             sentence,
+            max_length=self.max_len,
             add_special_tokens=True,
             return_token_type_ids=False,
             padding='max_length',
@@ -36,63 +39,45 @@ class SubjectivityDataset(data.Dataset):
             'label': torch.tensor(label, dtype=torch.long)
         }
 
-def split_dataset(sentences, labels, test_size=0.2, validation_size=0.1):
-    # Encode labels
-    labels = LabelEncoder().fit_transform(labels)
-    # Split the dataset into train and test sets
-    X_train, X_test, y_train, y_test = train_test_split(sentences, labels, test_size=test_size, random_state=42)
+def create_loader(sentences, labels, tokenizer, shuffle=False):
+    dataset = SentimentDataset(sentences, labels, tokenizer)
+    return DataLoader(dataset, batch_size=64, shuffle=shuffle)
 
-    # Calculate the validation size as a proportion of the training set
-    validation_size_adjusted = validation_size / (1 - test_size)
-
-    # Split the train set into train and validation sets
-    X_train, X_eval, y_train, y_eval = train_test_split(X_train, y_train, test_size=validation_size_adjusted, random_state=42)
-    return X_train, X_eval, X_test, y_train, y_eval, y_test
-
-def get_sub_data():
+def get_sub_sent():
     categories = sub.categories()
     sentences = []
     labels = []
     for cat in categories:
-        tmp_sent = sub.sents(categories=cat)
-        sentences.extend(tmp_sent)
-        labels.extend([cat] * len(tmp_sent))
+        tmp_sents = sub.sents(categories=cat)
+        tmp_sents = [' '.join(tmp_sent) for tmp_sent in tmp_sents]
+        sentences.extend(tmp_sents)
+        labels.extend([cat] * len(tmp_sents))
     encoder = LabelEncoder()
     labels = encoder.fit_transform(labels)
-    return sentences, labels, encoder
+    return sentences, labels
 
-def get_sub_dataloaders(sentences, labels):
-    X_train, X_eval, X_test, y_train, y_eval, y_test = split_dataset(sentences, labels)
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    train_dataset = SubjectivityDataset(X_train, y_train, tokenizer)
-    eval_dataset = SubjectivityDataset(X_eval, y_eval, tokenizer)
-    test_dataset = SubjectivityDataset(X_test, y_test, tokenizer)
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    eval_loader = DataLoader(eval_dataset, batch_size=64)
-    test_loader = DataLoader(test_dataset, batch_size=64)
-    return train_loader, eval_loader, test_loader
+def custom_sent_tokenize(text):
+    sentences = sent_tokenize(text)
+    filtered_sentences = []
+    for sentence in sentences:
+        # Filter out sentences that are too short
+        if len(sentence) < 3:
+            continue
+        # Filter out sentences that contain only non-alphanumeric characters
+        if re.match(r'^\W+$', sentence):
+            continue
+        filtered_sentences.append(sentence)
+    return filtered_sentences
 
-# TODO check
-def get_mr_data():
+def get_mr_doc():
     categories = mr.categories()
-    sentences = []
+    documents = []
     labels = []
     for cat in categories:
-        tmp_sent = mr.sents(categories=cat)
-        sentences.extend(tmp_sent)
-        labels.extend([cat] * len(tmp_sent))
+        fileids = mr.fileids(categories=cat)
+        tmp_documents = [mr.raw(fileid) for fileid in fileids]
+        documents.extend(tmp_documents)
+        labels.extend([cat] * len(documents))
     encoder = LabelEncoder()
     labels = encoder.fit_transform(labels)
-    return sentences, labels, encoder
-
-# TODO check
-def get_mr_dataloaders(sentences, labels):
-    X_train, X_eval, X_test, y_train, y_eval, y_test = split_dataset(sentences, labels)
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    train_dataset = SubjectivityDataset(X_train, y_train, tokenizer)  # Reusing the same dataset class
-    eval_dataset = SubjectivityDataset(X_eval, y_eval, tokenizer)
-    test_dataset = SubjectivityDataset(X_test, y_test, tokenizer)
-    train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    eval_loader = DataLoader(eval_dataset, batch_size=64)
-    test_loader = DataLoader(test_dataset, batch_size=64)
-    return train_loader, eval_loader, test_loader
+    return documents, labels
