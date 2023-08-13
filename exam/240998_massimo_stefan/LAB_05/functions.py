@@ -18,7 +18,7 @@ def get_grammar() -> PCFG:
     my_grammar = nltk.PCFG.fromstring(weighted_rules)
     return my_grammar
 
-def validate_grammar(grammar:PCFG, test_sents:list[str]) -> None:
+def validate_grammar(grammar:PCFG, test_sents) -> None:
     parser = nltk.ViterbiParser(grammar)
     for sent in test_sents:
         parses = parser.parse(sent.split())

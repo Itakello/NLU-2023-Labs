@@ -1,6 +1,8 @@
 import spacy
 from spacy_conll import ConllFormatter
 import spacy_stanza
+import nltk
+nltk.download('dependency_treebank')
 from nltk.corpus import dependency_treebank
 from nltk.parse import DependencyEvaluator
 from nltk.parse.dependencygraph import DependencyGraph
@@ -9,7 +11,7 @@ from spacy.tokenizer import Tokenizer
 from collections import defaultdict
 
 
-def get_parsers() -> tuple(Language, Language):
+def get_parsers():
     spacy_parser = _get_spacy_parser()
     stanza_parser = _get_stanza_parser()
     return spacy_parser, stanza_parser
@@ -37,10 +39,10 @@ def _get_stanza_parser() -> Language:
     nlp.add_pipe("conll_formatter", config=config, last=True)
     return nlp
 
-def get_parsed_sentences() -> list[DependencyGraph]:
+def get_parsed_sentences() :
     return dependency_treebank.parsed_sents()[-100:]
 
-def get_raw_sentences() -> list[str]:
+def get_raw_sentences():
     sentences = dependency_treebank.sents()[-100:]
     return [" ".join(sentence) for sentence in sentences]
 
@@ -66,7 +68,7 @@ def compare_dependency_tags(sentence: str, spacy_parser: Language, stanza_parser
     else:
         print("The dependency tags are different between the two parsers.")
 
-def parse_sentences(parser:Language, sentences:list[str]) -> list[DependencyGraph]:
+def parse_sentences(parser:Language, sentences):
     parsed_sentences = []
     for sentence in sentences:
         doc = parser(sentence)
@@ -82,7 +84,7 @@ def parse_sentences(parser:Language, sentences:list[str]) -> list[DependencyGrap
         parsed_sentences.append(dp)
     return parsed_sentences
 
-def evaluate_parser(parsed_sentences:list[DependencyGraph]) -> None:
+def evaluate_parser(parsed_sentences) -> None:
     gold_sentences = get_parsed_sentences()
     #parsed_sentences[0].tree().pretty_print(unicodelines=True, nodedist=4)
     #gold_sentences[0].tree().pretty_print(unicodelines=True, nodedist=4)

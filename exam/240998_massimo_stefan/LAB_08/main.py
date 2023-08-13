@@ -1,8 +1,6 @@
 from functions import *
 
 if __name__ == "__main__":
-    #Wrtite the code to load the datasets and to run your functions
-    # Print the results
     instances = senseval.instances('interest.pos')
     
     vectors_coll_features_extended = get_vectors_coll_features_extended(instances)

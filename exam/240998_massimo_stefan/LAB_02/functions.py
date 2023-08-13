@@ -3,13 +3,15 @@ from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import StratifiedKFold, cross_validate
 from sklearn.svm import LinearSVC
+import nltk
 
 
-def get_vectorizers() -> dict:
+def get_vectorizers():
+    nltk.download('stopwords')
     stop_words = stopwords.words('english')
     return {"CountVect":CountVectorizer(binary=True), "TF-IDF [CutOff]":TfidfVectorizer(min_df=2, max_df=100), "TF-IDF [WithoutStopWords]":TfidfVectorizer(stop_words=stop_words), "TF-IDF [NoLowercase]":TfidfVectorizer(lowercase=False)}
 
-def test_vectorizers(vectorizers: dict, data_raw, target, C = 1e-2) -> None:
+def test_vectorizers(vectorizers: dict, data_raw, target, C = 1e-2):
     clf = LinearSVC(C=C, dual=True)
     stratified_split = StratifiedKFold(n_splits=10, shuffle=True)
 

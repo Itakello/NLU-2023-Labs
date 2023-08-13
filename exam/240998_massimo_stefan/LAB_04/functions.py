@@ -1,5 +1,5 @@
 import math
-
+import nltk
 import en_core_web_sm
 from nltk.corpus import treebank
 from nltk.lm.preprocessing import flatten
@@ -9,6 +9,8 @@ from spacy.tokenizer import Tokenizer
 from itertools import chain
 
 def create_dataset():
+    nltk.download('treebank')
+    nltk.download('universal_tagset')
     train_indx = math.ceil(len(treebank.tagged_sents()) * 0.8)
     trn_data = treebank.tagged_sents(tagset='universal')[:train_indx]
     tst_data = treebank.tagged_sents(tagset='universal')[train_indx:]
@@ -16,7 +18,7 @@ def create_dataset():
 
 def train_and_evaluate_ngramtagger(trn_data, tst_data, n, cutoff) -> None:
     # training ngram tagger on treebank
-    print("\nNgram Tagger with n=", n, " and cutoff=", cutoff)
+    print("\nNgram Tagger with n =", n, " and cutoff =", cutoff)
     ngram_tagger = NgramTagger(n, train=trn_data, cutoff=cutoff)
 
     accuracy_ngram_tagger = ngram_tagger.accuracy(tst_data)

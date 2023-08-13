@@ -1,6 +1,8 @@
 from functions import *
+import nltk
 
 if __name__ == "__main__":
+    nltk.download('conll2002')
     trn_sents = list(conll2002.iob_sents('esp.train'))
     tst_sents = list(conll2002.iob_sents('esp.testa'))
     

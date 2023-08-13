@@ -5,16 +5,17 @@ import math
 from nltk.corpus import gutenberg
 from nltk.lm import NgramCounter, StupidBackoff, Vocabulary
 from nltk.lm.preprocessing import flatten, padded_everygram_pipeline
+import nltk
 
 
-def get_dataset_and_voc() -> tuple[list[list[str]], Vocabulary]:
+def get_dataset_and_voc():
     macbeth_sents = [[w.lower() for w in sent] for sent in gutenberg.sents('shakespeare-macbeth.txt')]
     macbeth_words = flatten(macbeth_sents)
     lex = Vocabulary(macbeth_words, unk_cutoff=2)
     macbeth_oov_sents = [list(lex.lookup(sent)) for sent in macbeth_sents]
     return macbeth_oov_sents, lex
 
-def evaluate_base_stupidbackoff(ngram_lengths, dataset, lex, test_sents) -> None:
+def evaluate_base_stupidbackoff(ngram_lengths, dataset, lex, test_sents):
     padded_ngrams_oov, flat_text_oov = padded_everygram_pipeline(ngram_lengths, dataset)
     lm_oov = StupidBackoff(alpha=0.4, order=ngram_lengths)
     lm_oov.fit(padded_ngrams_oov, flat_text_oov)
@@ -25,7 +26,7 @@ def evaluate_base_stupidbackoff(ngram_lengths, dataset, lex, test_sents) -> None
     ppl = lm_oov.perplexity([x for x in ngrams if len(x) == lm_oov.order])
     print('PPL StupidBackoff:', ppl)
     
-def evaluate_my_stupidbackoff(ngram_lengths, dataset, lex, test_sents) -> None:
+def evaluate_my_stupidbackoff(ngram_lengths, dataset, lex, test_sents):
     padded_ngrams, flat_text = padded_everygram_pipeline(ngram_lengths, dataset)
     my_lm_oov = MyStupidBackoff(alpha=0.4, order=ngram_lengths)
     my_lm_oov.fit(padded_ngrams)

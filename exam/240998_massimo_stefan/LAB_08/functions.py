@@ -1,10 +1,13 @@
-# Add the class of your model only
-# Here is where you define the architecture of your model using pytorch
 from collections import Counter
 
 import nltk
 import numpy as np
 from nltk import pos_tag
+nltk.download('wordnet_ic')
+nltk.download('senseval')
+nltk.download('wordnet')
+nltk.download('stopwords')
+nltk.download('averaged_perceptron_tagger')
 from nltk.corpus import senseval, stopwords, wordnet, wordnet_ic
 from nltk.corpus.reader import SensevalInstance
 from nltk.stem import WordNetLemmatizer
