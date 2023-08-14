@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 # Use same droput mask across time-steps
@@ -19,15 +18,14 @@ class VariationalDropout(nn.Module):
 
 
 class LM_LSTM_Adv(nn.Module):
-    def __init__(self, emb_size, hidden_size, output_size, pad_index=0, out_dropout=0.1,
-                 emb_dropout=0.1, n_layers=1):
+    def __init__(self, emb_size, hidden_size, output_size, pad_id=0, out_dropout=0.1, emb_dropout=0.1, n_layers=1):
         super(LM_LSTM_Adv, self).__init__()
         assert emb_size == hidden_size, "emb_size must be equal to hidden_size for weight tying"
-        self.embedding = nn.Embedding(output_size, emb_size, padding_idx=pad_index)
+        self.embedding = nn.Embedding(output_size, emb_size, padding_idx=pad_id)
         self.emb_dropout = VariationalDropout(emb_dropout) #! Variational droupout
         self.lstm = nn.LSTM(emb_size, hidden_size, n_layers, bidirectional=False)    
-        self.out_dropout = VariationalDropout(emb_dropout) #! Variational droupout
-        self.pad_token = pad_index
+        self.out_dropout = VariationalDropout(out_dropout) #! Variational droupout
+        self.pad_token = pad_id
         self.output = nn.Linear(hidden_size, output_size)
         self.output.weight = self.embedding.weight  # ! Weight tying
         
@@ -36,5 +34,5 @@ class LM_LSTM_Adv(nn.Module):
         emb = self.emb_dropout(emb)
         lstm_out, _  = self.lstm(emb)
         lstm_out = self.out_dropout(lstm_out)
-        output = self.output(lstm_out).permute(0,2,1)
+        output = self.output(lstm_out).permute(0, 2, 1)
         return output

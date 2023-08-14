@@ -3,52 +3,47 @@ import torch
 import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
-from torch.optim.swa_utils import AveragedModel, SWALR
 import copy
 import os
 
-def get_optimizer(optimizer, parameters, lr):
-    if optimizer == "SGD":
-        return torch.optim.SGD(parameters, lr=lr)
-    elif optimizer == "AdamW":
-        return torch.optim.AdamW(parameters, lr=lr)
-    else:
-        raise ValueError("Optimizer not supported")
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 def train_loop(data, optimizer, criterion, model, clip=5):
     model.train()
-    loss_array = []
-    number_of_tokens = []
+    total_loss = 0
+    total_tokens = 0
     
-    for sample in data:
+    for batch in data:
         optimizer.zero_grad() # Zeroing the gradient
-        output = model(sample['source'])
-        loss = criterion(output, sample['target'])
-        loss_array.append(loss.item() * sample["number_tokens"])
-        number_of_tokens.append(sample["number_tokens"])
+        source = batch['source'].to(device)
+        target = batch['target'].to(device)
+        preds = model(source)
+        loss = criterion(preds, target)
+        total_loss += loss.item()
+        total_tokens += batch["number_tokens"]
         loss.backward() # Compute the gradient, deleting the computational graph
         # clip the gradient to avoid explosioning gradients
         torch.nn.utils.clip_grad_norm_(model.parameters(), clip)  
         optimizer.step() # Update the weights
         
-    return sum(loss_array)/sum(number_of_tokens)
+    return total_loss / total_tokens
 
 def eval_loop(data, eval_criterion, model):
     model.eval()
-    loss_to_return = []
-    loss_array = []
-    number_of_tokens = []
-    # softmax = nn.Softmax(dim=1) # Use Softmax if you need the actual probability
+    total_loss = 0
+    total_tokens = 0
     with torch.no_grad(): # It used to avoid the creation of computational graph
-        for sample in data:
-            output = model(sample['source'])
-            loss = eval_criterion(output, sample['target'])
-            loss_array.append(loss.item())
-            number_of_tokens.append(sample["number_tokens"])
+        for batch in data:
+            source = batch['source'].to(device)
+            target = batch['target'].to(device)
+            preds = model(source)
+            loss = eval_criterion(preds, target)
+            total_loss += loss.item()
+            total_tokens += batch["number_tokens"]
             
-    ppl = math.exp(sum(loss_array) / sum(number_of_tokens))
-    loss_to_return = sum(loss_array) / sum(number_of_tokens)
-    return ppl, loss_to_return
+    avg_loss = total_loss / total_tokens
+    ppl = math.exp(avg_loss)
+    return ppl, avg_loss
 
 def init_weights(mat):
     for m in mat.modules():
@@ -70,7 +65,7 @@ def init_weights(mat):
                 if m.bias != None:
                     m.bias.data.fill_(0.01)
                     
-def train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader, clip=5, device='cuda:0'):
+def train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader, clip=5):
     n_epochs = 100
     patience = 3
     losses_train = []
@@ -79,7 +74,7 @@ def train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_
     best_ppl = math.inf
     best_model = None
     pbar = tqdm(range(1,n_epochs))
-    #If the PPL is too high try to change the learning rate
+
     for epoch in pbar:
         loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
         
@@ -89,7 +84,7 @@ def train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_
             ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
             losses_dev.append(np.asarray(loss_dev).mean())
             pbar.set_description("PPL: %f" % ppl_dev)
-            if  ppl_dev < best_ppl: # the lower, the better
+            if  ppl_dev < best_ppl:
                 best_ppl = ppl_dev
                 best_model = copy.deepcopy(model).to('cpu')
                 patience = 3
@@ -97,15 +92,14 @@ def train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_
                 patience -= 1
                 
             if patience <= 0: # Early stopping with patience
-                break # Not nice but it keeps the code clean
+                break
                 
     best_model.to(device)
     final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)    
     print('Test ppl: ', final_ppl)
     return best_model, final_ppl
 
-def save_model(model, model_name, emb_size, hidden_size, optimizer, lr, ppl):
-    file_name = '[' + str(ppl) + ']' + model_name + '_' + str(emb_size) + '_' + str(hidden_size) + '_' + optimizer + '_' + str(lr)  + '.pt'
-    path = 'model_bin/' + file_name
+def save_model(model, model_name, ppl):
+    path = f'model_bin/[{ppl}]{model_name}.pt'
     file_path = os.path.join(os.path.dirname(__file__), path)
     torch.save(model.state_dict(), file_path)
