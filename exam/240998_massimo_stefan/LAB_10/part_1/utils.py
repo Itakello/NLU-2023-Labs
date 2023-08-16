@@ -9,18 +9,47 @@ from collections import Counter
 import os
 
 PAD_TOKEN = 0
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 def load_data(path):
-    '''
-        input: path/to/data
-        output: json 
-    '''
     dataset = []
     with open(path) as f:
         dataset = json.loads(f.read())
     return dataset
 
+def get_raw_data():
+    dataset_path = os.path.join(os.path.dirname(__file__), 'ATIS')
+    X_train = load_data(os.path.join(dataset_path, 'train.json'))
+    X_test = load_data(os.path.join(dataset_path, 'test.json'))
+
+    # Calculate the portion of data to use for dev set
+    total_data_len = len(X_train) + len(X_test)
+    portion = round(total_data_len * 0.10 / len(X_train), 2)
+
+    # Stratify based on intents
+    intents = [x['intent'] for x in X_train]
+    intent_counts = Counter(intents)
+
+    # Split the training data into two lists: 
+    # 1) those with intents appearing more than once
+    # 2) those with intents appearing only once
+    multi_intent_data = [X_train[i] for i, intent in enumerate(intents) if intent_counts[intent] > 1]
+    single_intent_data = [X_train[i] for i, intent in enumerate(intents) if intent_counts[intent] == 1]
+
+    # Perform stratified train-dev split
+    multi_intents = [x['intent'] for x in multi_intent_data]
+    X_train, X_dev = train_test_split(multi_intent_data, test_size=portion, random_state=42, stratify=multi_intents)
+
+    # Add the single occurrence intent data to the training set
+    X_train.extend(single_intent_data)
+
+    return X_train, X_dev, X_test
+
+def get_lang(train_raw, dev_raw, test_raw):
+    words = sum([x['utterance'].split() for x in train_raw], [])
+    corpus = train_raw + dev_raw + test_raw
+    slots = set(sum([line['slots'].split() for line in corpus],[]))
+    intents = set([line['intent'] for line in corpus])
+    return Lang(words, intents, slots, cutoff=0)
 
 class Lang():
     def __init__(self, words, intents, slots, cutoff=0):
@@ -46,7 +75,7 @@ class Lang():
         if pad:
             vocab['pad'] = PAD_TOKEN
         for elem in elements:
-                vocab[elem] = len(vocab)
+            vocab[elem] = len(vocab)
         return vocab
     
 class IntentsAndSlots(data.Dataset):
@@ -70,8 +99,8 @@ class IntentsAndSlots(data.Dataset):
         return len(self.utterances)
 
     def __getitem__(self, idx):
-        utt = torch.Tensor(self.utt_ids[idx])
-        slots = torch.Tensor(self.slot_ids[idx])
+        utt = torch.LongTensor(self.utt_ids[idx])
+        slots = torch.LongTensor(self.slot_ids[idx])
         intent = self.intent_ids[idx]
         sample = {'utterance': utt, 'slots': slots, 'intent': intent}
         return sample
@@ -94,76 +123,31 @@ class IntentsAndSlots(data.Dataset):
         return res
     
 def collate_fn(data):
-    def merge(sequences):
-        '''
-        merge from batch * sent_len to batch * max_len 
-        '''
+    def pad_to_max_len(sequences):
         lengths = [len(seq) for seq in sequences]
-        max_len = 1 if max(lengths)==0 else max(lengths)
-        # Pad token is zero in our case
-        # So we create a matrix full of PAD_TOKEN (i.e. 0) with the shape 
-        # batch_size X maximum length of a sequence
-        padded_seqs = torch.LongTensor(len(sequences),max_len).fill_(PAD_TOKEN)
+        max_len = max(lengths)
+        padded_seqs = torch.LongTensor(len(sequences), max_len).fill_(PAD_TOKEN)
         for i, seq in enumerate(sequences):
             end = lengths[i]
-            padded_seqs[i, :end] = seq # We copy each sequence into the matrix
-        # print(padded_seqs)
-        padded_seqs = padded_seqs.detach()  # We remove these tensors from the computational graph
+            padded_seqs[i, :end] = seq
         return padded_seqs, lengths
-    # Sort data by seq lengths
+    # Sort data by sequence lengths
     data.sort(key=lambda x: len(x['utterance']), reverse=True) 
-    new_item = {}
-    for key in data[0].keys():
-        new_item[key] = [d[key] for d in data]
-    # We just need one length for packed pad seq, since len(utt) == len(slots)
-    src_utt, _ = merge(new_item['utterance'])
-    y_slots, y_lengths = merge(new_item["slots"])
+    new_item = {key: [d[key] for d in data] for key in data[0].keys()}
+    
+    src_utt, _ = pad_to_max_len(new_item['utterance'])
+    y_slots, y_lengths = pad_to_max_len(new_item["slots"])
     intent = torch.LongTensor(new_item["intent"])
     
-    src_utt = src_utt.to(device) # We load the Tensor on our seleceted device
-    y_slots = y_slots.to(device)
-    intent = intent.to(device)
-    y_lengths = torch.LongTensor(y_lengths).to(device)
-    
-    new_item["utterances"] = src_utt
-    new_item["intents"] = intent
-    new_item["y_slots"] = y_slots
-    new_item["slots_len"] = y_lengths
-    return new_item
+    batch = {
+        "utterances": src_utt,
+        "intents": intent,
+        "y_slots": y_slots,
+        "slots_len": torch.LongTensor(y_lengths)
+    }
+    return batch
 
-def get_raw_data():
-    tmp_train_raw = load_data(os.path.join(os.path.dirname(__file__),'ATIS','train.json'))
-    test_raw = load_data(os.path.join(os.path.dirname(__file__),'ATIS','test.json'))
-    
-    portion = round(((len(tmp_train_raw) + len(test_raw)) * 0.10)/(len(tmp_train_raw)),2)
-
-    intents = [x['intent'] for x in tmp_train_raw] # We stratify on intents
-    count_y = Counter(intents)
-
-    Y = []
-    X = []
-    mini_Train = []
-
-    for id_y, y in enumerate(intents):
-        if count_y[y] > 1: # If some intents occure once only, we put them in training
-            X.append(tmp_train_raw[id_y])
-            Y.append(y)
-        else:
-            mini_Train.append(tmp_train_raw[id_y])
-    # Random Stratify
-    X_train, X_dev, y_train, y_dev = train_test_split(X, Y, test_size=portion, 
-                                                        random_state=42, 
-                                                        shuffle=True,
-                                                        stratify=Y)
-    X_train.extend(mini_Train)
-    train_raw = X_train
-    dev_raw = X_dev
-
-    return train_raw, dev_raw, test_raw
-
-def get_dataloaders():
-    train_raw, dev_raw, test_raw = get_raw_data()
-    lang = get_lang()
+def get_dataloaders(train_raw, dev_raw, test_raw, lang):
     train_dataset = IntentsAndSlots(train_raw, lang)
     dev_dataset = IntentsAndSlots(dev_raw, lang)
     test_dataset = IntentsAndSlots(test_raw, lang)
@@ -171,13 +155,3 @@ def get_dataloaders():
     dev_loader = DataLoader(dev_dataset, batch_size=64, collate_fn=collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=64, collate_fn=collate_fn)
     return train_loader, dev_loader, test_loader
-
-def get_lang():
-    train_raw, dev_raw, test_raw = get_raw_data()
-    words = sum([x['utterance'].split() for x in train_raw], []) # No set() since we want to compute 
-                                                            # the cutoff
-    corpus = train_raw + dev_raw + test_raw # We do not wat unk labels, 
-                                            # however this depends on the research purpose
-    slots = set(sum([line['slots'].split() for line in corpus],[]))
-    intents = set([line['intent'] for line in corpus])
-    return Lang(words, intents, slots, cutoff=0)

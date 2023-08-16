@@ -1,120 +1,137 @@
 import torch
 from conll import evaluate
 from sklearn.metrics import classification_report
-import matplotlib.pyplot as plt
-import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
+import copy
 
-def train_loop(data, optimizer, criterion_slots, criterion_intents, model):
+device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+
+def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
     model.train()
-    loss_array = []
-    for sample in data:
+    total_loss = 0.0
+    
+    for batch in data:
+        batch = {k: v.to(device) for k, v in batch.items()}
         optimizer.zero_grad() # Zeroing the gradient
-        slots, intent = model(input_ids=sample['input_ids'], 
-                        attention_mask=sample['attention_mask'])
-        loss_intent = criterion_intents(intent, sample['intents'])
-        # Reshape slots to 2D tensor
-        slots = slots.view(-1, slots.shape[-1])
-        # Reshape target slots to 1D tensor
-        target_slots = sample['y_slots'].view(-1)
+        
+        slots, intent = model(input_ids=batch['input_ids'], 
+                              attention_mask=batch['attention_mask'])
+        
+        loss_intent = criterion_intents(intent, batch['intents'])
+        
+        slots = slots.view(-1, slots.shape[-1])  # Reshape slots to 2D tensor
+        target_slots = batch['y_slots'].view(-1) # Reshape target slots to 1D tensor
         loss_slot = criterion_slots(slots, target_slots)
-        loss = loss_intent + loss_slot
-        loss_array.append(loss.item())
-        loss.backward() # Compute the gradient, deleting the computational graph
-        optimizer.step() # Update the weights
-    return loss_array
+        
+        # Summing up the two losses
+        loss = loss_slot + loss_intent
+        total_loss += loss.item()
+        
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+        optimizer.step()
+
+    avg_loss = total_loss / len(data)
+    return avg_loss
+
 
 def eval_loop(data, criterion_slots, criterion_intents, model, lang):
     model.eval()
-    loss_array = []
+    total_loss = 0.0
     
     ref_intents = []
     hyp_intents = []
     
     ref_slots = []
     hyp_slots = []
-    with torch.no_grad(): # It used to avoid the creation of computational graph
-        for sample in data:
-            slots, intents = model(input_ids=sample['input_ids'], 
-                            attention_mask=sample['attention_mask'])
+    
+    with torch.no_grad():
+        for batch in data:
+            batch = {k: v.to(device) for k, v in batch.items()}
+            slots, intents = model(input_ids=batch['input_ids'], 
+                                   attention_mask=batch['attention_mask'])
             
-            loss_intent = criterion_intents(intents, sample['intents'])
-            loss_slot = criterion_slots(slots, sample['y_slots'])
+            loss_intent = criterion_intents(intents, batch['intents'])
+            loss_slot = criterion_slots(slots, batch['y_slots'])
             loss = loss_intent + loss_slot
-            loss_array.append(loss.item())
-            # Intent inference
-            out_intents = [lang.id2intent[x] 
-                           for x in torch.argmax(intents, dim=1).tolist()] 
-            gt_intents = [lang.id2intent[x] for x in sample['intents'].tolist()]
-            ref_intents.extend(gt_intents)
-            hyp_intents.extend(out_intents)
+            total_loss += loss.item()
             
-            # Slot inference 
+            # Intent inference
+            hyp_intents.extend([lang.id2intent[x] for x in torch.argmax(intents, dim=1).tolist()])
+            ref_intents.extend([lang.id2intent[x] for x in batch['intents'].tolist()])
+            
+            # Slot inference
             output_slots = torch.argmax(slots, dim=1)
             for id_seq, seq in enumerate(output_slots):
-                length = sample['slots_len'].tolist()[id_seq]
-                utt_ids = sample['input_ids'][id_seq][:length].tolist()
-                gt_ids = sample['y_slots'][id_seq].tolist()
-                gt_slots = [lang.id2slot[elem] for elem in gt_ids[:length]]
+                length = batch['slots_len'][id_seq].item()
+                utt_ids = batch['input_ids'][id_seq][:length].tolist()
+                gt_ids = batch['y_slots'][id_seq][:length].tolist()
+                
                 utterance = [lang.id2word[elem] for elem in utt_ids]
-                to_decode = seq[:length].tolist()
-                ref_slots.append([(utterance[id_el], elem) for id_el, elem in enumerate(gt_slots)])
-                tmp_seq = []
-                for id_el, elem in enumerate(to_decode):
-                    tmp_seq.append((utterance[id_el], lang.id2slot[elem]))
-                hyp_slots.append(tmp_seq)
+                gt_slots = [lang.id2slot[elem] for elem in gt_ids]
+                ref_slots.append(list(zip(utterance, gt_slots)))
+                
+                decoded_slot = [lang.id2slot[elem] for elem in seq[:length].tolist()]
+                hyp_slots.append(list(zip(utterance, decoded_slot)))
+    
     try:            
         results = evaluate(ref_slots, hyp_slots)
     except Exception as ex:
-        # Sometimes the model predics a class that is not in REF
-        print(ex)
-        ref_s = set([x[1] for x in ref_slots])
-        hyp_s = set([x[1] for x in hyp_slots])
-        print(hyp_s.difference(ref_s))
+        print(f"Error occurred: {ex}")
+        ref_s = set([x[1] for sublist in ref_slots for x in sublist])
+        hyp_s = set([x[1] for sublist in hyp_slots for x in sublist])
+        missing_classes = hyp_s.difference(ref_s)
+        if missing_classes:
+            print(f"Model predicted classes not in reference: {missing_classes}")
         
-    report_intent = classification_report(ref_intents, hyp_intents, 
-                                          zero_division=False, output_dict=True)
-    return results, report_intent, loss_array
+    avg_loss = total_loss / len(data)
+    report_intent = classification_report(ref_intents, hyp_intents, zero_division=False, output_dict=True)
+    
+    return results, report_intent, avg_loss
+
 
 def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader, criterion_slots, criterion_intents):
-    n_epochs = 200
+    n_epochs = 100
     patience = 3
     losses_train = []
     losses_dev = []
     sampled_epochs = []
     best_f1 = 0
-    for x in tqdm(range(1,n_epochs)):
-        loss = train_loop(train_loader, optimizer, criterion_slots, 
-                        criterion_intents, model)
+    best_model_weights = None  # store best model's weights
+
+    for x in tqdm(range(1, n_epochs)):
+        train_loss = train_loop(train_loader, optimizer, criterion_slots, criterion_intents, model)
+        losses_train.append(np.mean(train_loss))
+
         if x % 5 == 0:
             sampled_epochs.append(x)
-            losses_train.append(np.asarray(loss).mean())
-            results_dev, intent_res, loss_dev = eval_loop(dev_loader, criterion_slots, 
-                                                        criterion_intents, model, lang)
-            losses_dev.append(np.asarray(loss_dev).mean())
+            
+            results_dev, intent_res, dev_loss = eval_loop(dev_loader, criterion_slots, criterion_intents, model, lang)
+            losses_dev.append(dev_loss)
+
             f1 = results_dev['total']['f']
             
             if f1 > best_f1:
                 best_f1 = f1
+                best_model_weights = copy.deepcopy(model.state_dict())
                 patience = 3
             else:
                 patience -= 1
-            if patience <= 0: # Early stopping with patience
-                break # Not nice but it keeps the code clean
 
-    results_test, intent_test, _ = eval_loop(test_loader, criterion_slots, 
-                                            criterion_intents, model, lang)    
-    print('Slot F1: ', results_test['total']['f'])
-    print('Intent Accuracy:', intent_test['accuracy'])
-    return sampled_epochs, losses_train, losses_dev
+            if patience <= 0: # Early stopping with patience
+                model.load_state_dict(best_model_weights)  # Load the best model's weights
+                break
+
+    results_test, intent_test, _ = eval_loop(test_loader, criterion_slots, criterion_intents, model, lang)
     
-def plot_losses(sampled_epochs, losses_train, losses_dev):
-    plt.figure(num = 3, figsize=(8, 5)).patch.set_facecolor('white')
-    plt.title('Train and Dev Losses')
-    plt.ylabel('Loss')
-    plt.xlabel('Epochs')
-    plt.plot(sampled_epochs, losses_train, label='Train loss')
-    plt.plot(sampled_epochs, losses_dev, label='Dev loss')
-    plt.legend()
-    plt.savefig('test.png')
+    print('Slot F1:', results_test['total']['f'])
+    print('Intent Accuracy:', intent_test['accuracy'])
+
+    performance_metric = results_test['total']['f']
+    return model, performance_metric, sampled_epochs, losses_train, losses_dev
+    
+def save_model(model, model_name, metric):
+    path = f'model_bin/[{metric}]{model_name}.pt'
+    file_path = os.path.join(os.path.dirname(__file__), path)
+    torch.save(model.state_dict(), file_path)

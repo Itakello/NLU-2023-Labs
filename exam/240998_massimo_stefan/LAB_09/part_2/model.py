@@ -1,5 +1,23 @@
 import torch.nn as nn
 
+class LM_LSTM_Weight_Tying(nn.Module):
+    def __init__(self, emb_size, hidden_size, output_size, pad_id, out_dropout=0.1, emb_dropout=0.1, n_layers=1):
+        super(LM_LSTM_Weight_Tying, self).__init__()
+        self.embedding = nn.Embedding(output_size, emb_size, padding_idx=pad_id)
+        self.emb_dropout = nn.Dropout(emb_dropout)
+        self.lstm = nn.LSTM(emb_size, hidden_size, n_layers, bidirectional=False)    
+        self.out_dropout = nn.Dropout(out_dropout)
+        self.output = nn.Linear(hidden_size, output_size)
+        self.output.weight = self.embedding.weight  # ! Weight tying
+        
+    def forward(self, input_sequence):
+        emb = self.embedding(input_sequence)
+        emb = self.emb_dropout(emb)
+        lstm_out, _  = self.lstm(emb)
+        lstm_out = self.out_dropout(lstm_out)
+        output = self.output(lstm_out).permute(0, 2, 1)
+        return output
+    
 # Use same droput mask across time-steps
 class VariationalDropout(nn.Module):
     def __init__(self, p=0.5):
@@ -16,18 +34,31 @@ class VariationalDropout(nn.Module):
 
         return x * self.mask.div_(1 - self.p)
 
-
-class LM_LSTM_Adv(nn.Module):
+class LM_LSTM_Var_Dropout(nn.Module):
     def __init__(self, emb_size, hidden_size, output_size, pad_id=0, out_dropout=0.1, emb_dropout=0.1, n_layers=1):
-        super(LM_LSTM_Adv, self).__init__()
-        assert emb_size == hidden_size, "emb_size must be equal to hidden_size for weight tying"
+        super(LM_LSTM_Var_Dropout, self).__init__()
         self.embedding = nn.Embedding(output_size, emb_size, padding_idx=pad_id)
         self.emb_dropout = VariationalDropout(emb_dropout) #! Variational droupout
         self.lstm = nn.LSTM(emb_size, hidden_size, n_layers, bidirectional=False)    
         self.out_dropout = VariationalDropout(out_dropout) #! Variational droupout
-        self.pad_token = pad_id
         self.output = nn.Linear(hidden_size, output_size)
-        self.output.weight = self.embedding.weight  # ! Weight tying
+        
+    def forward(self, input_sequence):
+        emb = self.embedding(input_sequence)
+        emb = self.emb_dropout(emb)
+        lstm_out, _  = self.lstm(emb)
+        lstm_out = self.out_dropout(lstm_out)
+        output = self.output(lstm_out).permute(0, 2, 1)
+        return output
+    
+class LM_LSTM_Dropout_SWA(nn.Module):
+    def __init__(self, emb_size, hidden_size, output_size, pad_id, out_dropout=0.1, emb_dropout=0.1, n_layers=1):
+        super(LM_LSTM_Dropout_SWA, self).__init__()
+        self.embedding = nn.Embedding(output_size, emb_size, padding_idx=pad_id)
+        self.emb_dropout = nn.Dropout(emb_dropout)
+        self.lstm = nn.LSTM(emb_size, hidden_size, n_layers, bidirectional=False)    
+        self.out_dropout = nn.Dropout(out_dropout)
+        self.output = nn.Linear(hidden_size, output_size)
         
     def forward(self, input_sequence):
         emb = self.embedding(input_sequence)

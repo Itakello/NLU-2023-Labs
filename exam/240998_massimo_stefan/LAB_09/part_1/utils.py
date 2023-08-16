@@ -71,8 +71,9 @@ class PennTreeBank (data.Dataset):
                 tmp_seq.append(lang.word2id[new_word])
             res.append(tmp_seq)
         return res
-    
-def extend_to_max_len(sequences, pad_token): 
+  
+def collate_fn(data, pad_token):
+    def pad_to_max_len(sequences, pad_token): 
         lengths = [len(seq) for seq in sequences]
         max_len = 1 if max(lengths)==0 else max(lengths)
         padded_seqs = torch.LongTensor(len(sequences),max_len).fill_(pad_token)
@@ -82,20 +83,19 @@ def extend_to_max_len(sequences, pad_token):
         padded_seqs = padded_seqs.detach()
         return padded_seqs, lengths
 
-def merge_data(data): 
-    new_item = {}
-    for key in data[0].keys():
-        new_item[key] = [d[key] for d in data]
-    return new_item
-  
-def collate_fn(data, pad_token): 
+    def merge_data(data): 
+        new_item = {}
+        for key in data[0].keys():
+            new_item[key] = [d[key] for d in data]
+        return new_item
+    
     data.sort(key=lambda x: len(x["source"]), reverse=True) # Sort by decreasing order of length, beneficial for RNNs
     
     # Merge data for batch
     batch = merge_data(data)
 
-    batch["source"], _ = extend_to_max_len(batch["source"], pad_token)
-    batch["target"], lengths = extend_to_max_len(batch["target"], pad_token)
+    batch["source"], _ = pad_to_max_len(batch["source"], pad_token)
+    batch["target"], lengths = pad_to_max_len(batch["target"], pad_token)
     batch["number_tokens"] = sum(lengths)
     return batch
     
