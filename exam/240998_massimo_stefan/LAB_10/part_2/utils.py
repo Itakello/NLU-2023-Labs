@@ -99,17 +99,14 @@ class IntentsAndSlots(data.Dataset):
         input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
         
         attention_mask = [1] * len(input_ids)
-        while len(input_ids) < 512:
-            input_ids.append(0)  # pad token id
-            attention_mask.append(0)
-            aligned_slot_labels.append(PAD_TOKEN)
-
         intent = self.intent_ids[idx]
+        
         sample = {
             'input_ids': torch.tensor(input_ids),
             'attention_mask': torch.tensor(attention_mask),
             'slots': torch.tensor(aligned_slot_labels),
-            'intent': intent
+            'intent': intent,
+            'slots_len': len(aligned_slot_labels)
         }
         return sample
     
@@ -152,6 +149,7 @@ def collate_fn(data):
     batched_item["attention_mask"] = pad_to_max_len(batched_item['attention_mask'])
     batched_item["slots"] = pad_to_max_len(batched_item["slots"])
     batched_item["intent"] = torch.LongTensor(batched_item["intent"])
+    batched_item["slots_len"] = torch.LongTensor([d["slots_len"] for d in data])
     
     # Ensure slot labels are padded to the same length as input sequences
     max_len = batched_item["input_ids"].size(1)
@@ -165,7 +163,7 @@ def get_dataloaders(train_raw, dev_raw, test_raw, lang):
     train_dataset = IntentsAndSlots(train_raw, lang, tokenizer)
     dev_dataset = IntentsAndSlots(dev_raw, lang, tokenizer)
     test_dataset = IntentsAndSlots(test_raw, lang, tokenizer)
-    train_loader = DataLoader(train_dataset, batch_size=128, collate_fn=collate_fn, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=64, collate_fn=collate_fn, shuffle=True)
     dev_loader = DataLoader(dev_dataset, batch_size=64, collate_fn=collate_fn)
     test_loader = DataLoader(test_dataset, batch_size=64, collate_fn=collate_fn)
     return train_loader, dev_loader, test_loader

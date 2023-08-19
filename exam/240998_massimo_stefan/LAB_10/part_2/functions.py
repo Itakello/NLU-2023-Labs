@@ -4,6 +4,7 @@ from sklearn.metrics import classification_report
 from tqdm import tqdm
 import numpy as np
 import copy
+import os
 
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
@@ -18,10 +19,10 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
         slots, intent = model(input_ids=batch['input_ids'], 
                               attention_mask=batch['attention_mask'])
         
-        loss_intent = criterion_intents(intent, batch['intents'])
+        loss_intent = criterion_intents(intent, batch['intent'])
         
         slots = slots.view(-1, slots.shape[-1])  # Reshape slots to 2D tensor
-        target_slots = batch['y_slots'].view(-1) # Reshape target slots to 1D tensor
+        target_slots = batch['slots'].view(-1) # Reshape target slots to 1D tensor
         loss_slot = criterion_slots(slots, target_slots)
         
         # Summing up the two losses
@@ -52,21 +53,25 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
             slots, intents = model(input_ids=batch['input_ids'], 
                                    attention_mask=batch['attention_mask'])
             
-            loss_intent = criterion_intents(intents, batch['intents'])
-            loss_slot = criterion_slots(slots, batch['y_slots'])
+            loss_intent = criterion_intents(intents, batch['intent'])
+            
+            slots = slots.view(-1, slots.shape[-1])  # Reshape slots to 2D tensor
+            target_slots = batch['slots'].view(-1) # Reshape target slots to 1D tensor
+            loss_slot = criterion_slots(slots, target_slots)
+            
             loss = loss_intent + loss_slot
             total_loss += loss.item()
             
             # Intent inference
             hyp_intents.extend([lang.id2intent[x] for x in torch.argmax(intents, dim=1).tolist()])
-            ref_intents.extend([lang.id2intent[x] for x in batch['intents'].tolist()])
+            ref_intents.extend([lang.id2intent[x] for x in batch['intent'].tolist()])
             
             # Slot inference
             output_slots = torch.argmax(slots, dim=1)
             for id_seq, seq in enumerate(output_slots):
                 length = batch['slots_len'][id_seq].item()
                 utt_ids = batch['input_ids'][id_seq][:length].tolist()
-                gt_ids = batch['y_slots'][id_seq][:length].tolist()
+                gt_ids = batch['slots'][id_seq][:length].tolist()
                 
                 utterance = [lang.id2word[elem] for elem in utt_ids]
                 gt_slots = [lang.id2slot[elem] for elem in gt_ids]
