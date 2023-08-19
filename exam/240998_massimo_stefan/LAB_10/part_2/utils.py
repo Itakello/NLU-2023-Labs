@@ -3,7 +3,6 @@ from collections import Counter
 import torch
 import torch.utils.data as data
 from torch.utils.data import DataLoader
-import numpy as np
 from sklearn.model_selection import train_test_split
 from collections import Counter
 import os
@@ -46,42 +45,26 @@ def get_raw_data():
 
     return X_train, X_dev, X_test
 
-def get_lang(train_raw, dev_raw, test_raw):
+"""def get_lang(train_raw, dev_raw, test_raw):
     words = sum([x['utterance'].split() for x in train_raw], [])
     corpus = train_raw + dev_raw + test_raw
     slots = set(sum([line['slots'].split() for line in corpus],[]))
     intents = set([line['intent'] for line in corpus])
-    return Lang(words, intents, slots, cutoff=0)
+    return Lang(words, intents, slots, cutoff=0)"""
 
-class Lang():
-    def __init__(self, words, intents, slots, cutoff=0):
-        self.word2id = self.w2id(words, cutoff=cutoff, unk=True) # unk required for OOV
-        self.slot2id = self.lab2id(slots, pad=True, unk=True)
-        self.intent2id = self.lab2id(intents, pad=False, unk=True) # not pad for intents
-        self.id2word = {v:k for k, v in self.word2id.items()}
-        self.id2slot = {v:k for k, v in self.slot2id.items()}
-        self.id2intent = {v:k for k, v in self.intent2id.items()}
-        
-    def w2id(self, elements, cutoff=0, unk=True):
-        vocab = {'pad': PAD_TOKEN}
-        if unk:
-            vocab['unk'] = len(vocab)
-        count = Counter(elements)
-        for k, v in count.items():
-            if v > cutoff:
-                vocab[k] = len(vocab)
-        return vocab
+def get_label_vocab(corpus, key):
+    labels = set([item[key] for item in corpus])
+    return {label: i for i, label in enumerate(labels)}
+
+def get_vocab(train_raw, dev_raw, test_raw):
+    corpus = train_raw + dev_raw + test_raw
     
-    def lab2id(self, elements, pad=True, unk=False):
-        vocab = {}
-        if pad:
-            vocab['pad'] = PAD_TOKEN
-        if unk:
-            vocab['unk'] = len(vocab)
-        for elem in elements:
-            vocab[elem] = len(vocab)
-        return vocab
+    # Build slot and intent vocabularies
+    slot_vocab = get_label_vocab(corpus, 'slots')
+    intent_vocab = get_label_vocab(corpus, 'intent')
     
+    return slot_vocab, intent_vocab
+
 class IntentsAndSlots(data.Dataset):
     def __init__(self, dataset, lang, tokenizer, unk='unk'):
         self.utterances = [x['utterance'] for x in dataset]
@@ -150,11 +133,6 @@ def collate_fn(data):
     batched_item["slots"] = pad_to_max_len(batched_item["slots"])
     batched_item["intent"] = torch.LongTensor(batched_item["intent"])
     batched_item["slots_len"] = torch.LongTensor([d["slots_len"] for d in data])
-    
-    # Ensure slot labels are padded to the same length as input sequences
-    max_len = batched_item["input_ids"].size(1)
-    if batched_item["slots"].size(1) < max_len:
-        batched_item["slots"] = F.pad(batched_item["slots"], (0, max_len - batched_item["slots"].size(1)))
 
     return batched_item
 

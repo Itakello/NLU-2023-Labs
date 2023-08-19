@@ -10,10 +10,10 @@ if __name__ == "__main__":
     # Loading raw data
     train_raw, dev_raw, test_raw = get_raw_data()
     
-    lang = get_lang(train_raw, dev_raw, test_raw)
+    slow_vocab, intent_vocab = get_vocab(train_raw, dev_raw, test_raw)
 
-    out_slot = len(lang.slot2id)
-    out_int = len(lang.intent2id)
+    out_slot = len(slow_vocab)
+    out_int = len(intent_vocab)
     
     model = BertForIntentAndSlotFilling(out_slot, out_int).to(device)
     

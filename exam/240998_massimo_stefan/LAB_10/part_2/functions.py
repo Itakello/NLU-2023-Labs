@@ -109,7 +109,7 @@ def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader
         train_loss = train_loop(train_loader, optimizer, criterion_slots, criterion_intents, model)
         losses_train.append(np.mean(train_loss))
 
-        if x % 5 == 0:
+        if x % 1 == 0:
             sampled_epochs.append(x)
             
             results_dev, intent_res, dev_loss = eval_loop(dev_loader, criterion_slots, criterion_intents, model, lang)
