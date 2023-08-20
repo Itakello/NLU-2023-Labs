@@ -36,14 +36,12 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
     avg_loss = total_loss / len(data)
     return avg_loss
 
-
-def eval_loop(data, criterion_slots, criterion_intents, model, lang):
+def eval_loop(data, criterion_slots, criterion_intents, model, lang, tokenizer):
     model.eval()
     total_loss = 0.0
     
     ref_intents = []
     hyp_intents = []
-    
     ref_slots = []
     hyp_slots = []
     
@@ -67,18 +65,20 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
             ref_intents.extend([lang.id2intent[x] for x in batch['intent'].tolist()])
             
             # Slot inference
-            output_slots = torch.argmax(slots, dim=1)
+            batch_size, sequence_length = batch['input_ids'].shape
+            slots = slots.view(batch_size, sequence_length, -1)
+            output_slots = torch.argmax(slots, dim=2)
             for id_seq, seq in enumerate(output_slots):
-                length = batch['slots_len'][id_seq].item()
-                utt_ids = batch['input_ids'][id_seq][:length].tolist()
-                gt_ids = batch['slots'][id_seq][:length].tolist()
+                utterance = tokenizer.convert_ids_to_tokens(batch['input_ids'][id_seq])
                 
-                utterance = [lang.id2word[elem] for elem in utt_ids]
+                length = batch['slots_len'][id_seq].item()
+                
+                gt_ids = batch['slots'][id_seq][:length].tolist()
                 gt_slots = [lang.id2slot[elem] for elem in gt_ids]
-                ref_slots.append(list(zip(utterance, gt_slots)))
+                ref_slots.append(list(zip(utterance[1:-1], gt_slots[1:-1])))
                 
                 decoded_slot = [lang.id2slot[elem] for elem in seq[:length].tolist()]
-                hyp_slots.append(list(zip(utterance, decoded_slot)))
+                hyp_slots.append(list(zip(utterance[1:-1], decoded_slot[1:-1])))
     
     try:            
         results = evaluate(ref_slots, hyp_slots)
@@ -88,7 +88,9 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
         hyp_s = set([x[1] for sublist in hyp_slots for x in sublist])
         missing_classes = hyp_s.difference(ref_s)
         if missing_classes:
-            print(f"Model predicted classes not in reference: {missing_classes}")
+            error_msg = f"Model predicted classes not in reference: {missing_classes}"
+            print(error_msg)
+            results = {'error': error_msg}  # Assign a value to 'results' in case of an exception
         
     avg_loss = total_loss / len(data)
     report_intent = classification_report(ref_intents, hyp_intents, zero_division=False, output_dict=True)
@@ -96,7 +98,7 @@ def eval_loop(data, criterion_slots, criterion_intents, model, lang):
     return results, report_intent, avg_loss
 
 
-def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader, criterion_slots, criterion_intents):
+def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader, criterion_slots, criterion_intents, tokenizer):
     n_epochs = 100
     patience = 3
     losses_train = []
@@ -109,12 +111,14 @@ def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader
         train_loss = train_loop(train_loader, optimizer, criterion_slots, criterion_intents, model)
         losses_train.append(np.mean(train_loss))
 
-        if x % 1 == 0:
+        if x % 5 == 0:
             sampled_epochs.append(x)
             
-            results_dev, intent_res, dev_loss = eval_loop(dev_loader, criterion_slots, criterion_intents, model, lang)
+            results_dev, intent_res, dev_loss = eval_loop(dev_loader, criterion_slots, criterion_intents, model, lang, tokenizer)
             losses_dev.append(dev_loss)
 
+            if results_dev.get('error'):
+                continue
             f1 = results_dev['total']['f']
             
             if f1 > best_f1:
@@ -128,7 +132,7 @@ def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader
                 model.load_state_dict(best_model_weights)  # Load the best model's weights
                 break
 
-    results_test, intent_test, _ = eval_loop(test_loader, criterion_slots, criterion_intents, model, lang)
+    results_test, intent_test, _ = eval_loop(test_loader, criterion_slots, criterion_intents, model, lang, tokenizer)
     
     print('Slot F1:', results_test['total']['f'])
     print('Intent Accuracy:', intent_test['accuracy'])

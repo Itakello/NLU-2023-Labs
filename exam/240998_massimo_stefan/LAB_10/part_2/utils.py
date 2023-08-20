@@ -44,26 +44,32 @@ def get_raw_data():
     X_train.extend(single_intent_data)
 
     return X_train, X_dev, X_test
-
-"""def get_lang(train_raw, dev_raw, test_raw):
-    words = sum([x['utterance'].split() for x in train_raw], [])
-    corpus = train_raw + dev_raw + test_raw
-    slots = set(sum([line['slots'].split() for line in corpus],[]))
-    intents = set([line['intent'] for line in corpus])
-    return Lang(words, intents, slots, cutoff=0)"""
-
-def get_label_vocab(corpus, key):
-    labels = set([item[key] for item in corpus])
-    return {label: i for i, label in enumerate(labels)}
-
-def get_vocab(train_raw, dev_raw, test_raw):
-    corpus = train_raw + dev_raw + test_raw
     
-    # Build slot and intent vocabularies
-    slot_vocab = get_label_vocab(corpus, 'slots')
-    intent_vocab = get_label_vocab(corpus, 'intent')
+class Lang():
+    def __init__(self, train_raw, dev_raw, test_raw) -> None:
+        self.corpus = train_raw + dev_raw + test_raw
+        self.slot2id = self.get_slot_vocab()
+        self.intent2id = self.get_intent_vocab()
+        self.id2slot = {v: k for k, v in self.slot2id.items()}
+        self.id2intent = {v: k for k, v in self.intent2id.items()}
+        
+    def get_slot_vocab(self):
+        corpus_slots = []
+        for line in self.corpus:
+            corpus_slots.extend(line['slots'].split())
+        return self.lab2id(corpus_slots, pad=True)
     
-    return slot_vocab, intent_vocab
+    def get_intent_vocab(self):
+        corpus_intents = [line['intent'] for line in self.corpus]
+        return self.lab2id(corpus_intents, pad=False)
+        
+    def lab2id(self, elements, pad=True):
+        vocab = {}
+        if pad:
+            vocab['pad'] = PAD_TOKEN
+        for elem in set(elements):
+            vocab[elem] = len(vocab)
+        return vocab
 
 class IntentsAndSlots(data.Dataset):
     def __init__(self, dataset, lang, tokenizer, unk='unk'):
@@ -78,7 +84,10 @@ class IntentsAndSlots(data.Dataset):
 
     def __getitem__(self, idx):
         tokens, aligned_slot_labels = self.align_slot_labels(self.utterances[idx], self.slot_ids[idx])
+        
+        aligned_slot_labels = [PAD_TOKEN] + aligned_slot_labels + [PAD_TOKEN]
         tokens = ['[CLS]'] + tokens + ['[SEP]']
+        
         input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
         
         attention_mask = [1] * len(input_ids)
@@ -107,10 +116,10 @@ class IntentsAndSlots(data.Dataset):
         return tokens, aligned_labels
 
     def mapping_lab(self, data, mapper):
-        return [mapper.get(x, mapper[self.unk]) for x in data]
+        return [mapper[x] for x in data]
 
     def mapping_seq(self, data, mapper):
-        return [[mapper.get(x, mapper[self.unk]) for x in seq.split()] for seq in data]
+        return [[mapper[x] for x in seq.split()] for seq in data]
     
 def collate_fn(data):
     def pad_to_max_len(sequences):
@@ -123,7 +132,8 @@ def collate_fn(data):
         return padded_seqs
 
     # Sort data by sequence lengths for efficient RNN packing, if necessary
-    data.sort(key=lambda x: len(x['input_ids']), reverse=True) 
+    data.sort(key=lambda x: len(x['input_ids']), reverse=True)
+    
     batched_item = {}
     for key in data[0].keys():
         batched_item[key] = [d[key] for d in data]
@@ -136,8 +146,7 @@ def collate_fn(data):
 
     return batched_item
 
-def get_dataloaders(train_raw, dev_raw, test_raw, lang):
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+def get_dataloaders(train_raw, dev_raw, test_raw, lang, tokenizer):
     train_dataset = IntentsAndSlots(train_raw, lang, tokenizer)
     dev_dataset = IntentsAndSlots(dev_raw, lang, tokenizer)
     test_dataset = IntentsAndSlots(test_raw, lang, tokenizer)
