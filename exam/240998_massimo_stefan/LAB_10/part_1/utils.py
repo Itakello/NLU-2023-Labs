@@ -122,7 +122,7 @@ class IntentsAndSlots(data.Dataset):
             res.append(tmp_seq)
         return res
     
-def collate_fn(data):
+def collate_fn(batch):
     def pad_to_max_len(sequences):
         lengths = [len(seq) for seq in sequences]
         max_len = max(lengths)
@@ -132,8 +132,8 @@ def collate_fn(data):
             padded_seqs[i, :end] = seq
         return padded_seqs, lengths
     # Sort data by sequence lengths
-    data.sort(key=lambda x: len(x['utterance']), reverse=True) 
-    new_item = {key: [d[key] for d in data] for key in data[0].keys()}
+    batch.sort(key=lambda x: len(x['utterance']), reverse=True) 
+    new_item = {key: [d[key] for d in batch] for key in batch[0].keys()}
     
     src_utt, _ = pad_to_max_len(new_item['utterance'])
     y_slots, y_lengths = pad_to_max_len(new_item["slots"])

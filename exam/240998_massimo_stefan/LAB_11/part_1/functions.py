@@ -33,11 +33,11 @@ def train_loop(data, optimizer, criterion, model):
     total_loss = 0
     for batch in tqdm(data, desc='Training', leave=False):
         optimizer.zero_grad() # Zeroing the gradient
-        input_ids = batch['input_ids'].to(device)
-        attention_masks = batch['attention_mask'].to(device)
-        labels = batch['label'].to(device)
-        logits = model(input_ids, attention_mask=attention_masks, labels=labels).logits
-        loss = criterion(logits, labels)
+        
+        batch = {k: v.to(device) for k, v in batch.items() if k != 'sentence_texts'}
+        
+        logits = model(batch['input_ids'], attention_mask=batch['attention_mask'], labels= batch['labels']).logits
+        loss = criterion(logits, batch['labels'])
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
@@ -51,28 +51,26 @@ def eval_loop(data, criterion, model):
     total_eval_examples = 0
     for batch in tqdm(data, desc='Evaluating', leave=False):
         with torch.no_grad():
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['label'].to(device)
+            batch = {k: v.to(device) for k, v in batch.items() if k != 'sentence_texts'}
             # Forward pass
-            logits = model(input_ids, attention_mask=attention_mask, labels=labels).logits
+            logits = model(batch['input_ids'], attention_mask=batch['attention_mask'], labels=batch['labels']).logits
             # Compute loss
-            loss = criterion(logits, labels)
+            loss = criterion(logits, batch['labels'])
             total_loss += loss.item()
             # Compute accuracy
             preds = torch.argmax(logits, dim=1)
-            correct_preds = (preds == labels).sum().item()
+            correct_preds = (preds == batch['labels']).sum().item()
             total_eval_accuracy += correct_preds
-            total_eval_examples += labels.size(0)
+            total_eval_examples += batch['labels'].size(0)
     avg_val_loss = total_loss / len(data)
     avg_val_accuracy = total_eval_accuracy / total_eval_examples
     return avg_val_loss, avg_val_accuracy
 
-def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, n_splits=2):
+def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, n_splits=10):
     skf = StratifiedKFold(n_splits=n_splits)
-    train_losses = []
-    val_losses = []
-    val_accuracies = []
+    tot_train_loss = 0.0
+    tot_val_loss = 0.0
+    tot_val_accuracy = 0.0
     
     best_val_accuracy = 0
 
@@ -100,23 +98,18 @@ def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, n_spl
         
         # Check if this model has better validation accuracy
         if val_accuracy > best_val_accuracy:
-            best_val_accuracy = val_accuracy
+            best_val_accuracy = tot_val_accuracy
             save_model(model, model_name)
 
         # Store results
-        train_losses.append(train_loss)
-        val_losses.append(val_loss)
-        val_accuracies.append(val_accuracy)
-
-    # Compute average results
-    avg_train_loss = sum(train_losses) / n_splits
-    avg_val_loss = sum(val_losses) / n_splits
-    avg_val_accuracy = sum(val_accuracies) / n_splits
+        tot_train_loss += train_loss
+        tot_val_loss += val_loss
+        tot_val_accuracy += val_accuracy
 
     print(f"Performances {model_name} on the subjectivity task")
-    print("Train loss:", avg_train_loss)
-    print("Validation loss:", avg_val_loss)
-    print("Validation accuracy:", avg_val_accuracy)
+    print("Train loss:", tot_train_loss / n_splits)
+    print("Validation loss:", tot_val_loss / n_splits)
+    print("Validation accuracy:", tot_val_accuracy / n_splits)
     
 def filter_subj_doc(sentences, tokenizer, old_model_name):
     # TODO fix so that it sent_tokenize the documents, it performs the classification and then it joins the sentences
@@ -135,7 +128,7 @@ def filter_subj_doc(sentences, tokenizer, old_model_name):
             preds = torch.argmax(logits, dim=1)
             # take only the sentences that are classified as subjective
             subj_indices = (preds == 1).nonzero(as_tuple=True)[0]
-            subj_sentences = [batch['sentence_text'][i] for i in subj_indices]
+            subj_sentences = [batch['sentence_texts'][i] for i in subj_indices]
             filtered_sentences.extend(subj_sentences)
             subj_labels = [batch['label'][i] for i in subj_indices]
             filtered_labels.extend(subj_labels)

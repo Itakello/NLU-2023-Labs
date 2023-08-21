@@ -10,7 +10,7 @@ device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
 def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=5):
     model.train()
-    total_loss = 0.0
+    total_loss = 0
     
     for batch in data:
         batch = {k: v.to(device) for k, v in batch.items()}
@@ -38,7 +38,7 @@ def train_loop(data, optimizer, criterion_slots, criterion_intents, model, clip=
 
 def eval_loop(data, criterion_slots, criterion_intents, model, lang, tokenizer):
     model.eval()
-    total_loss = 0.0
+    total_loss = 0
     
     ref_intents = []
     hyp_intents = []
@@ -109,7 +109,7 @@ def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader
 
     for x in tqdm(range(1, n_epochs)):
         train_loss = train_loop(train_loader, optimizer, criterion_slots, criterion_intents, model)
-        losses_train.append(np.mean(train_loss))
+        losses_train.append(train_loss)
 
         if x % 5 == 0:
             sampled_epochs.append(x)
