@@ -15,4 +15,6 @@ if __name__ == "__main__":
     model = JointABSA(num_aspect_labels=3, num_polarity_labels=5).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=0.0001)
 
-    sampled_epochs, losses_train, losses_dev = train_and_eval(model, optimizer, train_loader, test_loader, dev_loader, criterion_at, criterion_po, lang)
+    model = train_and_eval(model, optimizer, train_loader, test_loader, dev_loader, criterion_at, criterion_po, lang)
+    save_model(model, 'JointABSA')
+    

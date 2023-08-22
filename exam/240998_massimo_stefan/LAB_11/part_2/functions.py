@@ -1,6 +1,7 @@
 import torch
 from tqdm import tqdm
 from evals import evaluate
+import os
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -112,4 +113,9 @@ def train_and_eval(model, optimizer, train_loader, test_loader, dev_loader, crit
     print("Joint task Recall:", joint_r)
     print("Joint task F1:", joint_f1)
     
-    return sampled_epochs, losses_train, losses_dev
+    return model
+
+def save_model(model, model_name):
+    path = 'model_bin/' + model_name + '.pt'
+    file_path = os.path.join(os.path.dirname(__file__), path)
+    torch.save(model.state_dict(), file_path)
