@@ -1,7 +1,6 @@
 import torch
 from tqdm import tqdm
-from transformers import BertTokenizer
-from sklearn.metrics import precision_recall_fscore_support
+from evals import evaluate
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -30,7 +29,7 @@ def train_loop(model, data_loader, optimizer, criterion_at, criterion_po):
     avg_loss = total_loss / len(data_loader)
     return avg_loss
 
-def map_to_tags(gold_val, pred_val, lengths, mapper):
+def convert_to_tags(gold_val, pred_val, lengths, mapper):
     gold_val = gold_val.tolist()
     pred_val = pred_val.tolist()
     
@@ -48,10 +47,10 @@ def eval_loop(model, data_loader, criterion_at, criterion_po, lang):
     model.eval()
     total_loss = 0
     
-    all_true_aspects = []
-    all_pred_aspects = []
-    all_true_joints = []
-    all_pred_joints = []
+    all_aspect_gold = []
+    all_aspect_preds = []
+    all_polarity_gold = []
+    all_polarity_preds = []
     
     for batch in data_loader:
         with torch.no_grad():
@@ -71,62 +70,46 @@ def eval_loop(model, data_loader, criterion_at, criterion_po, lang):
             aspect_preds = torch.argmax(aspect_logits, dim=-1)
             polarity_preds = torch.argmax(polarity_logits, dim=-1)
             
-            # ! Continue from HERE
-            
-            aspect_gold, aspect_preds = map_to_tags(batch['aspect_annotations'], aspect_preds, batch['lengths'], lang.idx2aspect)
-            polarity_gold, polarity_preds = map_to_tags(batch['polarity_annotations'], polarity_preds, batch['lengths'], lang.idx2polarity)
+            aspect_gold, aspect_preds = convert_to_tags(batch['aspect_annotations'], aspect_preds, batch['lengths'], lang.idx2aspect)
+            polarity_gold, polarity_preds = convert_to_tags(batch['polarity_annotations'], polarity_preds, batch['lengths'], lang.idx2polarity)
 
-            # For Task 1 metrics
-            all_true_aspects.extend(batch['aspect_annotations'].flatten().tolist())
-            all_pred_aspects.extend(aspect_preds.flatten().tolist())
-
-            # For joint evaluation
-            true_joints = list(zip(batch['aspect_annotations'].flatten().tolist(), batch['polarity_annotations'].flatten().tolist()))
-            pred_joints = list(zip(aspect_preds.flatten().tolist(), polarity_preds.flatten().tolist()))
-
-            all_true_joints.extend(true_joints)
-            all_pred_joints.extend(pred_joints)
+            all_aspect_gold.extend(aspect_gold)
+            all_aspect_preds.extend(aspect_preds)
+            all_polarity_gold.extend(polarity_gold)
+            all_polarity_preds.extend(polarity_preds)
 
     avg_loss = total_loss / len(data_loader)
 
-    # Task 1 Metrics
-    precision, recall, f1, _ = precision_recall_fscore_support(all_true_aspects, all_pred_aspects, average='weighted', zero_division=0)
+    task_1_scores, joint_scores = evaluate(all_aspect_gold, all_polarity_gold, all_aspect_preds, all_polarity_preds)
 
-    # Joint evaluation (both span ids and polarity)
-    joint_accuracy = sum([true == pred for true, pred in zip(all_true_joints, all_pred_joints)]) / len(all_true_joints)
-
-    return avg_loss, precision, recall, f1, joint_accuracy
-
+    return avg_loss, task_1_scores, joint_scores
 
 def train_and_eval(model, optimizer, train_loader, test_loader, dev_loader, criterion_at, criterion_po, lang):
     n_epochs = 100
-    patience = 3
     losses_train = []
     losses_dev = []
     sampled_epochs = []
-    best_aspect_accuracy = 0
-    best_polarity_accuracy = 0
 
     for x in tqdm(range(1, n_epochs)):
         loss = train_loop(model, train_loader, optimizer, criterion_at, criterion_po)
         losses_train.append(loss)
 
-        if x % 1 == 0:
+        if x % 120 == 0:
             sampled_epochs.append(x)
-            val_loss, aspect_accuracy, polarity_accuracy = eval_loop(model, dev_loader, criterion_at, criterion_po, lang)
+            val_loss, _, _ = eval_loop(model, dev_loader, criterion_at, criterion_po, lang)
             losses_dev.append(val_loss)
 
-            if aspect_accuracy > best_aspect_accuracy or polarity_accuracy > best_polarity_accuracy:
-                best_aspect_accuracy = max(best_aspect_accuracy, aspect_accuracy)
-                best_polarity_accuracy = max(best_polarity_accuracy, polarity_accuracy)
-                patience = 3
-            else:
-                patience -= 1
+    _, task_1_scores, joint_scores = eval_loop(model, test_loader, criterion_at, criterion_po, lang)
+    
+    task_1_p, task_1_r, task_1_f1 = task_1_scores
+    joint_p, joint_r, joint_f1 = joint_scores
+    
+    print("Task 1 Precision:", task_1_p)
+    print("Task 1 Recall:", task_1_r)
+    print("Task 1 F1:", task_1_f1)
 
-            if patience <= 0:  # Early stopping with patience
-                break
-
-    _, test_aspect_accuracy, test_polarity_accuracy = eval_loop(model, test_loader, criterion_at, criterion_po, lang)
-    print('Aspect Accuracy: ', test_aspect_accuracy)
-    print('Polarity Accuracy:', test_polarity_accuracy)
+    print("\nJoint task Precision:", joint_p)
+    print("Joint task Recall:", joint_r)
+    print("Joint task F1:", joint_f1)
+    
     return sampled_epochs, losses_train, losses_dev

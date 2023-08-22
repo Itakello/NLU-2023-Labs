@@ -94,6 +94,9 @@ class Lang():
         self.polarity2idx = {'O':1, 'T-POS':2, 'T-NEG':3, 'T-NEU':4}
         self.idx2aspect = {v:k for k,v in self.aspect2idx.items()}
         self.idx2polarity = {v:k for k,v in self.polarity2idx.items()}
+        # sometimes from the dataset we get a pad token that is not in the vocabulary
+        self.idx2aspect[PAD_TOKEN] = 'O'
+        self.idx2polarity[PAD_TOKEN] = 'O'
 
 def collate_fn(batch):
     # Sort data by sequence lengths
