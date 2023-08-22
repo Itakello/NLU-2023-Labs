@@ -23,5 +23,8 @@ if __name__ == "__main__":
         train_loader, dev_loader, test_loader = get_dataloaders(train_raw, dev_raw, test_raw, lang, pad_id, batch_size=256)
         model = model(hyp['emb_size'], hyp['hidden_size'], vocab_len, pad_id=pad_id).to(device)
         optimizer = hyp['optimizer'](model.parameters(), hyp['lr'])
-        best_model, final_ppl = train_and_evaluate_avg(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader)
+        if model == LM_LSTM_Dropout_SWA:
+          best_model, final_ppl = train_and_evaluate_avg(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader)
+        else:
+          best_model, final_ppl = train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader)
         save_model(best_model, model.__class__.__name__, final_ppl)
