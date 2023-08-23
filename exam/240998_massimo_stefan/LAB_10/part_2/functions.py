@@ -117,8 +117,6 @@ def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader
             results_dev, intent_res, dev_loss = eval_loop(dev_loader, criterion_slots, criterion_intents, model, lang, tokenizer)
             losses_dev.append(dev_loss)
 
-            if results_dev.get('error'):
-                continue
             f1 = results_dev['total']['f']
             
             if f1 > best_f1:
@@ -138,9 +136,9 @@ def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader
     print('Intent Accuracy:', intent_test['accuracy'])
 
     performance_metric = results_test['total']['f']
-    return model, performance_metric, sampled_epochs, losses_train, losses_dev
+    return model, performance_metric
     
 def save_model(model, model_name, metric):
-    path = f'model_bin/[{metric}]{model_name}.pt'
+    path = f'model_bin/[{round(metric, 2)}]{model_name}.pt'
     file_path = os.path.join(os.path.dirname(__file__), path)
     torch.save(model.state_dict(), file_path)

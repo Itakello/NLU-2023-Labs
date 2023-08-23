@@ -8,6 +8,7 @@ from transformers import BertTokenizer
 import re
 from nltk.tokenize import sent_tokenize
 from torch.nn.utils.rnn import pad_sequence
+import nltk
 
 PAD_TOKEN = 0
 
@@ -30,7 +31,9 @@ class SentimentDataset(data.Dataset):
             return_token_type_ids=False,
             return_attention_mask=True,
             return_tensors='pt',
-            padding=False
+            max_length=512,
+            padding=False,
+            truncation=True
         )
 
         return {
@@ -60,11 +63,13 @@ def collate_fn(batch):
         'labels': torch.stack(labels)
     }
 
-def create_loader(sentences, labels, tokenizer, shuffle=False):
+def create_loader(sentences, labels, tokenizer, batch_size, shuffle=False):
     dataset = SentimentDataset(sentences, labels, tokenizer)
-    return DataLoader(dataset, batch_size=64, shuffle=shuffle, collate_fn=collate_fn)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
 
 def get_sub_sent():
+    nltk.download('subjectivity')
+    nltk.download('punkt')
     categories = sub.categories()
     sentences = []
     labels = []
@@ -91,6 +96,7 @@ def custom_sent_tokenize(text):
     return filtered_sentences
 
 def get_mr_doc():
+    nltk.download('movie_reviews')
     categories = mr.categories()
     documents = []
     labels = []
@@ -98,7 +104,7 @@ def get_mr_doc():
         fileids = mr.fileids(categories=cat)
         tmp_documents = [mr.raw(fileid) for fileid in fileids]
         documents.extend(tmp_documents)
-        labels.extend([cat] * len(documents))
+        labels.extend([cat] * len(tmp_documents))
     encoder = LabelEncoder()
     labels = encoder.fit_transform(labels)
     return documents, labels

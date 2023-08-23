@@ -1,11 +1,10 @@
 import torch
-from sklearn.metrics import classification_report
 import matplotlib.pyplot as plt
 import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
-from utils import create_loader
+from utils import create_loader, custom_sent_tokenize
 from model import *
 import os
 
@@ -36,7 +35,7 @@ def train_loop(data, optimizer, criterion, model):
         
         batch = {k: v.to(device) for k, v in batch.items() if k != 'sentence_texts'}
         
-        logits = model(batch['input_ids'], attention_mask=batch['attention_mask'], labels= batch['labels']).logits
+        logits = model(batch['input_ids'], attention_mask=batch['attention_mask'], labels=batch['labels']).logits
         loss = criterion(logits, batch['labels'])
         total_loss += loss.item()
         loss.backward()
@@ -66,11 +65,11 @@ def eval_loop(data, criterion, model):
     avg_val_accuracy = total_eval_accuracy / total_eval_examples
     return avg_val_loss, avg_val_accuracy
 
-def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, n_splits=10):
+def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, batch_size, n_splits):
     skf = StratifiedKFold(n_splits=n_splits)
-    tot_train_loss = 0.0
-    tot_val_loss = 0.0
-    tot_val_accuracy = 0.0
+    tot_train_loss = 0
+    tot_val_loss = 0
+    tot_val_accuracy = 0
     
     best_val_accuracy = 0
 
@@ -79,8 +78,8 @@ def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, n_spl
         X_train, X_val = [sentences[i] for i in train_index], [sentences[i] for i in val_index]
         y_train, y_val = [labels[i] for i in train_index], [labels[i] for i in val_index]
 
-        train_loader = create_loader(X_train, y_train, tokenizer, shuffle=True)
-        val_loader = create_loader(X_val, y_val, tokenizer)
+        train_loader = create_loader(X_train, y_train, tokenizer, batch_size, shuffle=True)
+        val_loader = create_loader(X_val, y_val, tokenizer, batch_size)
         
         model = BertForSequenceClassification.from_pretrained(
             "bert-base-uncased",
@@ -98,7 +97,7 @@ def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, n_spl
         
         # Check if this model has better validation accuracy
         if val_accuracy > best_val_accuracy:
-            best_val_accuracy = tot_val_accuracy
+            best_val_accuracy = val_accuracy
             save_model(model, model_name)
 
         # Store results
@@ -111,26 +110,30 @@ def k_fold_evaluation(criterion, tokenizer, sentences, labels, model_name, n_spl
     print("Validation loss:", tot_val_loss / n_splits)
     print("Validation accuracy:", tot_val_accuracy / n_splits)
     
-def filter_subj_doc(sentences, tokenizer, old_model_name):
-    # TODO fix so that it sent_tokenize the documents, it performs the classification and then it joins the sentences
-    loader = create_loader(sentences, ['obj'] * len(sentences), tokenizer) # NOTE dummy labels
-    model = load_model(old_model_name)
-    model.eval()
-    filtered_sentences = []
+def filter_subj_doc(documents, labels, tokenizer, sub_model):
+    filtered_documents = []
     filtered_labels = []
-    for batch in tqdm(loader, desc='Filtering subj sentences', leave=False):
-        with torch.no_grad():
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            # Forward pass
-            logits = model(input_ids, attention_mask=attention_mask).logits
-            # Compute accuracy
-            preds = torch.argmax(logits, dim=1)
-            # take only the sentences that are classified as subjective
-            subj_indices = (preds == 1).nonzero(as_tuple=True)[0]
-            subj_sentences = [batch['sentence_texts'][i] for i in subj_indices]
-            filtered_sentences.extend(subj_sentences)
-            subj_labels = [batch['label'][i] for i in subj_indices]
-            filtered_labels.extend(subj_labels)
-        torch.cuda.empty_cache()
-    return filtered_sentences, filtered_labels
+    model = load_model(sub_model)
+    model.eval()
+    for document, label in tqdm(zip(documents, labels), desc='Filtering subj sentences from documents', leave=False):
+        sentences = custom_sent_tokenize(document)
+        loader = create_loader(sentences, [0] * len(sentences), tokenizer, batch_size=64) # NOTE dummy labels
+        
+        filtered_sentences = []
+        for batch in loader:
+            with torch.no_grad():
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                # Forward pass
+                logits = model(input_ids, attention_mask=attention_mask).logits
+                # Compute accuracy
+                preds = torch.argmax(logits, dim=-1)
+                # take only the sentences that are classified as subjective
+                subj_indices = (preds == 1).nonzero(as_tuple=True)[0]
+                subj_sentences = [batch['sentence_texts'][i] for i in subj_indices]
+                filtered_sentences.extend(subj_sentences)
+            torch.cuda.empty_cache()
+        if len(filtered_sentences) > 0:
+            filtered_documents.append('\n'.join(filtered_sentences))
+            filtered_labels.append(label)
+    return filtered_documents, filtered_labels

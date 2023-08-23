@@ -132,6 +132,6 @@ def train_and_eval(model, optimizer, lang, train_loader, test_loader, dev_loader
     return model, performance_metric
 
 def save_model(model, model_name, metric):
-    path = f'model_bin/[{metric}]{model_name}.pt'
+    path = f'model_bin/[{round(metric, 2)}]{model_name}.pt'
     file_path = os.path.join(os.path.dirname(__file__), path)
     torch.save(model.state_dict(), file_path)

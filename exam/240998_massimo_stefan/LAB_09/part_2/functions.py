@@ -89,10 +89,9 @@ def train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_
     return best_model, final_ppl
 
 def save_model(model, model_name, ppl):
-    path = f'model_bin/[{ppl}]{model_name}.pt'
+    path = f'model_bin/[{round(ppl, 2)}]{model_name}.pt'
     file_path = os.path.join(os.path.dirname(__file__), path)
     torch.save(model.state_dict(), file_path)
-
 
 def train_and_evaluate_avg(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader, clip=5, device='cuda:0'):
     n_epochs = 100
