@@ -7,7 +7,7 @@ import nltk
 import spacy
 
 
-def get_corpus(text_file = 'milton-paradise.txt') -> tuple[str, list[str], list[str]]:
+def get_corpus(text_file = 'milton-paradise.txt'):
     nltk.download('gutenberg')
     from nltk.corpus import gutenberg
     m_chars = gutenberg.raw(text_file)
@@ -31,7 +31,7 @@ def print_statistics(chars, words, sents) -> None:
   print("MIN sent len: ", min(sent_lens))
   print("MAX sent len: ", max(sent_lens))
   
-def get_stats_spacy(chars:str) -> tuple[str, list[str], list[str]]:
+def get_stats_spacy(chars:str):
     nlp = spacy.load("en_core_web_sm")
     doc = nlp(chars, disable=["tagger", "ner"])
     chars_spacy = [char for char in doc.text]
@@ -39,7 +39,7 @@ def get_stats_spacy(chars:str) -> tuple[str, list[str], list[str]]:
     sentes_spacy = [sent for sent in doc.sents]
     return chars_spacy, words_spacy, sentes_spacy
     
-def get_stats_nltk(chars:str) -> tuple[str, list[str], list[str]]:
+def get_stats_nltk(chars:str):
     chars_nltk = chars
     words_nltk = nltk.word_tokenize(chars)
     sentes_nltk = nltk.sent_tokenize(chars)
