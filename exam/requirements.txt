@@ -1,0 +1,16 @@
+pandas==1.3.5
+spacy==3.5.0
+nltk
+scikit-learn
+pcfg
+stanza
+spacy_conll
+spacy_stanza
+python-crfsuite
+sklearn-crfsuite
+gensim
+python-Levenshtein
+tqdm
+torch
+matplotlib
+transformers

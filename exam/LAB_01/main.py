@@ -3,10 +3,12 @@
 
 # Import everything from functions.py file
 from functions import *
+from spacy.cli import download
 
 if __name__ == "__main__":
     #Wrtite the code to load the datasets and to run your functions
     # Print the results
+    download("en_core_web_sm")
     m_chars, m_words, m_sents = get_corpus()
     print_statistics(m_chars, m_words, m_sents)
     print("--Statistics using Spacy--")

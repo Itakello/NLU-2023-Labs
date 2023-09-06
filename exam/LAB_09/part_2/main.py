@@ -4,11 +4,9 @@ from model import *
 
 if __name__ == "__main__":
     models = [(LM_LSTM_Dropout_SWA,
-                {"emb_size": 250, "hidden_size": 400, "optimizer": torch.optim.AdamW, "lr": 0.0001}),
-              (LM_LSTM_Weight_Tying,
-                {"emb_size": 300, "hidden_size": 300, "optimizer": torch.optim.AdamW, "lr": 0.0001}),
-            (LM_LSTM_Var_Dropout,
-                {"emb_size": 250, "hidden_size": 400, "optimizer": torch.optim.SGD, "lr": 0.0001})
+                {"emb_size": 250, "hidden_size": 300, "optimizer": torch.optim.AdamW, "lr": 0.001}),
+              (LM_LSTM_Weight_Tying, {"emb_size": 300, "hidden_size": 300, "optimizer": torch.optim.AdamW, "lr": 0.0001}),
+            (LM_LSTM_Var_Dropout,{"emb_size": 250, "hidden_size": 400, "optimizer": torch.optim.AdamW, "lr": 0.0001})
     ]
     
     train_raw, dev_raw, test_raw = get_raw_data()
@@ -23,7 +21,7 @@ if __name__ == "__main__":
         train_loader, dev_loader, test_loader = get_dataloaders(train_raw, dev_raw, test_raw, lang, pad_id, batch_size=256)
         model = model(hyp['emb_size'], hyp['hidden_size'], vocab_len, pad_id=pad_id).to(device)
         optimizer = hyp['optimizer'](model.parameters(), hyp['lr'])
-        if model == LM_LSTM_Dropout_SWA:
+        if model.__class__ == LM_LSTM_Dropout_SWA:
           best_model, final_ppl = train_and_evaluate_avg(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader)
         else:
           best_model, final_ppl = train_and_evaluate(model, optimizer, criterion_train, criterion_eval, train_loader, dev_loader, test_loader)

@@ -17,4 +17,3 @@ if __name__ == "__main__":
 
     model = train_and_eval(model, optimizer, train_loader, test_loader, dev_loader, criterion_at, criterion_po, lang)
     save_model(model, 'JointABSA')
-    

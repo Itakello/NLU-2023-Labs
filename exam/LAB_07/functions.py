@@ -1,3 +1,5 @@
+from spacy.cli import download
+download('es_core_news_sm')
 import es_core_news_sm
 import nltk
 import pandas as pd

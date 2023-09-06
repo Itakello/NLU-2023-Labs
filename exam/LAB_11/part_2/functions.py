@@ -1,3 +1,4 @@
+import copy
 import torch
 from tqdm import tqdm
 from evals import evaluate
@@ -88,19 +89,12 @@ def eval_loop(model, data_loader, criterion_at, criterion_po, lang):
 def train_and_eval(model, optimizer, train_loader, test_loader, dev_loader, criterion_at, criterion_po, lang):
     n_epochs = 100
     losses_train = []
-    losses_dev = []
-    sampled_epochs = []
 
     for x in tqdm(range(1, n_epochs)):
         loss = train_loop(model, train_loader, optimizer, criterion_at, criterion_po)
         losses_train.append(loss)
 
-        if x % 120 == 0:
-            sampled_epochs.append(x)
-            val_loss, _, _ = eval_loop(model, dev_loader, criterion_at, criterion_po, lang)
-            losses_dev.append(val_loss)
-
-    _, task_1_scores, joint_scores = eval_loop(model, test_loader, criterion_at, criterion_po, lang)
+        _, task_1_scores, joint_scores = eval_loop(model, test_loader, criterion_at, criterion_po, lang)
     
     task_1_p, task_1_r, task_1_f1 = task_1_scores
     joint_p, joint_r, joint_f1 = joint_scores
