@@ -12,6 +12,7 @@ if __name__ == "__main__":
     
     sub_sentences, sub_labels = get_sub_sent()
     
+    print('Subjectivity task: full dataset')
     k_fold_evaluation(criterion, tokenizer, sub_sentences, sub_labels, sub_model, n_splits=2)
     
     mr_documents, mr_labels = get_mr_doc()
